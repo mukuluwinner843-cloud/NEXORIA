@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 # Polices DejaVu : utilisées par le moteur pour les symboles absents des polices de base
-RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core \
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core fonts-dejavu-extra \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
