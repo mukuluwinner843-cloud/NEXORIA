@@ -193,11 +193,14 @@ def build_body_excellence(blocks, out_pdf, running_title):
         return STYLES[("body_indent" if indent else "body") + ("_kwn" if kwn else "")]
 
     def first_paragraph(text, kwn):
-        """Lettrine or sur 3 lignes (kit) ; initiale or en ligne si le paragraphe tient sur 1 ligne."""
         if cp1252_ok(text) and "³" not in text and "²" not in text:
-            dc = GoldDropCap(text)
+            dc = GoldDropCap(text, cap_lines=3)
             dc.wrap(fw, 10000)
-            if len(dc.lines) >= 2:
+            if len(dc.lines) == 2:
+                dc = GoldDropCap(text, cap_lines=2)
+                dc.wrap(fw, 10000)
+                return dc, dc.total_height
+            if len(dc.lines) >= 3:
                 return dc, dc.total_height
         p = gold_initial(text, body_style(kwn, False))
         return p, 46
