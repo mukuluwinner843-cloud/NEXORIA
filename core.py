@@ -1,72 +1,128 @@
 # -*- coding: utf-8 -*-
 """
-NEXORIA — service de mise en page (Phase 1 de l'automatisation)
-=================================================================
-Couche web fine au-dessus de core.py. C'est ce fichier que n8n appelle.
-
-Entrée  : JSON avec les informations de l'élève + le texte brut du devoir.
-Sortie  : le PDF fini (Standard ou Excellence), prêt à être renvoyé sur WhatsApp.
-
-Sécurité minimale : une clé secrète partagée (variable d'environnement
-NEXORIA_API_KEY), à passer dans l'en-tête HTTP  X-API-Key.
+NEXORIA — logique de génération (indépendante du framework web)
+==================================================================
+build_pdf() refait la chaîne validée manuellement pendant les tests :
+texte brut -> structure (titres, tableaux, schémas) -> corps -> sommaire
+(si utile) -> couverture (avec blason si l'établissement est reconnu) ->
+fusion, pour les packs Standard et Excellence.
 """
 import os
-from typing import Literal, Optional
+import re
+import tempfile
 
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
-from pydantic import BaseModel, Field
+import nexoria_engine_standard as std
+import nexoria_engine_excellence as exc
+from nexoria_tables import paragraphs_from_markdown, extract_special_blocks
 
-import core
+ASSETS = os.path.dirname(__file__)
 
-API_KEY = os.environ.get("NEXORIA_API_KEY")  # défini sur l'hébergeur, jamais écrit ici en dur
+# "classe" n'est pas toujours connue (ex. document reçu sans niveau précisé) :
+# jamais inventée, simplement absente de la couverture si absente ici.
+REQUIRED_META = ["etablissement", "eleve", "matiere", "titulaire", "theme", "annee", "date"]
 
-app = FastAPI(title="NEXORIA Layout Service", version="1.0")
-
-# Permet au panneau de génération (page HTML locale, ouverte depuis le téléphone)
-# d'appeler ce service depuis un navigateur. Sans danger : tout appel doit de toute
-# façon fournir la clé API secrète pour obtenir un résultat.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["POST", "GET"],
-    allow_headers=["*"],
-)
-
-
-class Meta(BaseModel):
-    etablissement: str = Field(..., examples=["Complexe Scolaire Francisco Palau"])
-    eleve: str
-    classe: str = Field("", description="Laisser vide si le niveau/la classe n'est pas précisé sur le document")
-    matiere: str
-    titulaire: str = Field(..., description="Nom de l'enseignant/encadreur")
-    theme: str = Field(..., description="Titre ou thème du devoir")
-    annee: str = Field(..., examples=["2026-2027"])
-    date: str = Field(..., description="Date de remise, telle qu'à afficher")
-    doc_word: str = Field("DEVOIR", description="Mot affiché en gros sur la couverture")
+# Établissements dont NEXORIA a le blason officiel : correspondance par mot-clé
+# dans le nom donné (insensible à la casse). À étendre au fur et à mesure des
+# partenariats — aucun blason n'est affiché pour un établissement non reconnu.
+KNOWN_CRESTS = {
+    "francisco palau": "crest_grey.png",
+}
+KNOWN_CRESTS_EXCELLENCE = {
+    "francisco palau": "crest_transparent.png",
+}
 
 
-class GenerateRequest(BaseModel):
-    pack: Literal["standard", "excellence"]
-    meta: Meta
-    corps_texte: str = Field(..., description="Texte brut du devoir : INTRODUCTION, I., II., ... CONCLUSION")
+class GenerationError(Exception):
+    def __init__(self, message, status_code=400):
+        super().__init__(message)
+        self.status_code = status_code
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+def split_school_line(etablissement: str):
+    m = re.match(r"^(Complexe Scolaire|Institut(?:\s+Sup[ée]rieur)?|Lyc[ée]e|Coll[eè]ge)\s+(.+)$",
+                etablissement, re.I)
+    if m:
+        return m.group(1).upper(), m.group(2).upper()
+    return "", etablissement.upper()
 
 
-@app.post("/generate")
-def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(None)):
-    if API_KEY and x_api_key != API_KEY:
-        raise HTTPException(401, "Clé API invalide ou manquante (en-tête X-API-Key).")
-    try:
-        pdf_bytes = core.build_pdf(req.pack, req.meta.model_dump(), req.corps_texte)
-    except core.GenerationError as e:
-        raise HTTPException(e.status_code, str(e))
-    filename = "%s_%s_%s.pdf" % (req.meta.doc_word, req.meta.eleve.replace(" ", "_"), req.pack.upper())
-    return Response(content=pdf_bytes, media_type="application/pdf",
-                    headers={"Content-Disposition": 'attachment; filename="%s"' % filename})
-    
+def find_crest(etablissement: str, mapping: dict):
+    low = etablissement.lower()
+    for key, fname in mapping.items():
+        if key in low:
+            return os.path.join(ASSETS, fname)
+    return None
+
+
+def validate_meta(meta: dict):
+    missing = [k for k in REQUIRED_META if not str(meta.get(k, "")).strip()]
+    if missing:
+        raise GenerationError("Champs manquants dans meta : " + ", ".join(missing))
+
+
+def build_pdf(pack: str, meta: dict, corps_texte: str) -> bytes:
+    if pack not in ("standard", "excellence"):
+        raise GenerationError("pack doit être 'standard' ou 'excellence' (reçu : %r)" % pack)
+    validate_meta(meta)
+
+    paras = paragraphs_from_markdown(corps_texte)
+    if not paras:
+        raise GenerationError("corps_texte est vide")
+    pre = extract_special_blocks(paras)
+    blocks = std.classify(pre)
+    if not any(b["kind"] == "h1" for b in blocks):
+        raise GenerationError(
+            "Structure non reconnue : aucun titre détecté (INTRODUCTION, I., II., ... "
+            "CONCLUSION). On ne devine pas une mise en page sans structure claire.", 422)
+
+    doc_word = meta.get("doc_word") or "DEVOIR"
+    line1, line2 = split_school_line(meta["etablissement"])
+    year = re.sub(r"\s*[-\u2013\u2014]\s*", " \u2013 ", meta["annee"])
+    fields = [("\u00c9L\u00c8VE", meta["eleve"].upper())]
+    if str(meta.get("classe", "")).strip():
+        fields.append(("CLASSE", meta["classe"].upper()))
+    fields += [
+        ("MATI\u00c8RE", meta["matiere"].upper()),
+        ("ENCADREUR", meta["titulaire"].upper()),
+        ("DATE DE REMISE", meta["date"]),
+    ]
+
+    with tempfile.TemporaryDirectory() as d:
+        body_pdf = os.path.join(d, "body.pdf")
+        som_pdf = os.path.join(d, "som.pdf")
+        cover_pdf = os.path.join(d, "cover.pdf")
+        final_pdf = os.path.join(d, "final.pdf")
+        want_sommaire = std.needs_sommaire(blocks)
+        std.CFG["cover_pages"] = 1 + (std.sommaire_pages(blocks) if want_sommaire else 0)
+        parts = [cover_pdf]
+
+        if pack == "standard":
+            theme_lines = std.balance(meta["theme"], "Times-Italic", 13, 330)
+            toc, _gap, _tries = std.build_balanced(std.build_body, blocks, body_pdf, meta["matiere"].upper())
+            if want_sommaire:
+                std.build_sommaire(toc, som_pdf)
+                parts.append(som_pdf)
+            std.render_cover_school_standard(
+                cover_pdf, line1, line2, year, fields, theme_lines,
+                crest_path=find_crest(meta["etablissement"], KNOWN_CRESTS),
+                logo_path=os.path.join(ASSETS, "nexoria_logo_grey.png"),
+                doc_word=doc_word,
+            )
+        else:
+            theme_lines = exc.balance(meta["theme"], "Times-Italic", 13, 330)
+            toc, _gap, _tries = exc.build_balanced(exc.build_body_excellence, blocks, body_pdf, meta["matiere"].upper())
+            if want_sommaire:
+                exc.build_sommaire_excellence(toc, som_pdf)
+                parts.append(som_pdf)
+            exc.render_cover_school_excellence(
+                cover_pdf, line1, line2, year, fields, theme_lines,
+                kit_dir=ASSETS + "/",
+                doc_word=doc_word,
+                crest_path=find_crest(meta["etablissement"], KNOWN_CRESTS_EXCELLENCE),
+            )
+
+        parts.append(body_pdf)
+        std.merge(parts, final_pdf, title=meta["theme"], author=meta["eleve"])
+        with open(final_pdf, "rb") as f:
+            return f.read()
+            
