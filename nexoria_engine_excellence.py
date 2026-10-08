@@ -14,6 +14,7 @@ import html
 import sys
 from nexoria_engine_standard import *          # parse_source, classify, fr, balance, STYLES, TocDoc, ...
 from reportlab.platypus import Table, TableStyle, Flowable
+from nexoria_tables import table_flowables, diagram_flowable
 
 PARCHMENT = colors.HexColor("#F8F6F0")
 GOLD = colors.HexColor("#B89252")        # corps de texte (charte)
@@ -24,6 +25,8 @@ TINT = colors.HexColor("#EFE8D8")
 CHARBON = BLACK
 
 GOLD_HEX = "#B89252"
+TABLE_PALETTE_EXCELLENCE = {"text": CHARBON, "head_bg": TINT, "grid": SEP_LINE,
+                           "grid_w": 0.75, "rule": GOLD}
 
 
 # --------------------------------------------------------------------------------------
@@ -193,6 +196,10 @@ def build_body_excellence(blocks, out_pdf, running_title):
         return STYLES[("body_indent" if indent else "body") + ("_kwn" if kwn else "")]
 
     def first_paragraph(text, kwn):
+        """Lettrine or sur 2 ou 3 lignes selon la longueur réelle du paragraphe (kit) ;
+        initiale or en ligne si le paragraphe tient sur 1 ligne. Corrige un déséquilibre
+        visuel : une lettrine calée sur 3 lignes pour un paragraphe qui n'en fait que 2
+        laisse un vide disproportionné sous la lettre."""
         if cp1252_ok(text) and "³" not in text and "²" not in text:
             dc = GoldDropCap(text, cap_lines=3)
             dc.wrap(fw, 10000)
@@ -246,6 +253,14 @@ def build_body_excellence(blocks, out_pdf, running_title):
             st["fresh"] = True
         elif kind == "biblio":
             story.append(Paragraph(fr(text), STYLES["biblio"]))
+        elif kind == "table":
+            d = b["data"]
+            story.extend(table_flowables(d["caption"], d["rows"], fw, palette=TABLE_PALETTE_EXCELLENCE))
+            st["fresh"] = True
+        elif kind == "diagram":
+            d = b["data"]
+            story.extend(diagram_flowable(d["title"], d["levels"], line_color=GOLD, cap_color=GREY))
+            st["fresh"] = True
         i += 1
 
     if is_complete(blocks):
@@ -389,3 +404,4 @@ def render_cover_school_excellence(out_pdf, school_line1, school_line2, year_tex
 
     c.showPage()
     c.save()
+      
