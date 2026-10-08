@@ -22,6 +22,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas as canvas_module
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
+from nexoria_tables import table_flowables, diagram_flowable
 
 FD = "/usr/share/fonts/truetype/dejavu/"
 pdfmetrics.registerFont(TTFont("Serif", FD + "DejaVuSerif.ttf"))
@@ -73,13 +74,19 @@ SECTION_WORDS = ("BIBLIOGRAPHIE", "RÉFÉRENCES", "ANNEXE")
 def is_h1(l):
     if re.match(r"^[IVXLCDM]+\.\s+\S", l) and l == l.upper():
         return True
-    return l in ("INTRODUCTION", "CONCLUSION") or (l == l.upper() and l.startswith(SECTION_WORDS))
+    if l in ("INTRODUCTION", "CONCLUSION"):
+        return True
+    # « BIBLIOGRAPHIE » peut être précédé/suivi d'un qualificatif ("PETITE
+    # BIBLIOGRAPHIE INDICATIVE", "RÉFÉRENCES BIBLIOGRAPHIQUES"...) : on cherche le
+    # mot n'importe où dans une ligne entièrement capitale et assez courte pour
+    # être un titre plutôt qu'une phrase.
+    return l == l.upper() and len(l) <= 60 and any(w in l for w in SECTION_WORDS)
 
 
 def section_kind(h):
-    if h.startswith(("BIBLIOGRAPHIE", "RÉFÉRENCES")):
+    if "BIBLIOGRAPHIE" in h or "RÉFÉRENCES" in h:
         return "biblio"
-    if h.startswith("ANNEXE"):
+    if "ANNEXE" in h:
         return "annexe"
     return "body"
 
@@ -89,9 +96,15 @@ def is_formula(l):
 
 
 def classify(lines):
+    """`lines` : chaînes normales, ou dicts {"special": "table"/"diagram", ...}
+    déjà isolés par nexoria_tables.extract_special_blocks()."""
     out = []
     sect = "body"
     for l in lines:
+        if isinstance(l, dict):
+            out.append({"kind": l["special"], "text": "", "kwn": False, "sect": sect,
+                       "newpage": False, "nodc": True, "data": l})
+            continue
         prev = out[-1] if out else None
         after_colon = bool(prev) and prev["text"].endswith(":") and prev["kind"] == "p"
         if is_h1(l):
@@ -367,6 +380,14 @@ def build_body(blocks, out_pdf, running_title):
             st["fresh"], st["dc"] = True, False
         elif kind == "biblio":
             story.append(Paragraph(fr(text), STYLES["biblio"]))
+        elif kind == "table":
+            d = b["data"]
+            story.extend(table_flowables(d["caption"], d["rows"], fw))
+            st["fresh"], st["dc"] = True, False
+        elif kind == "diagram":
+            d = b["data"]
+            story.extend(diagram_flowable(d["title"], d["levels"]))
+            st["fresh"], st["dc"] = True, False
 
     if is_complete(blocks):
         story.append(Spacer(1, 18))
@@ -437,6 +458,13 @@ def som_layout(groups, s_default=40.0, s_min=30.0):
     return pages, s
 
 
+def needs_sommaire(blocks, min_headings=4):
+    """Un sommaire sert à naviguer un document à plusieurs sections : sous ce seuil
+    (devoir court, 1-3 parties), il n'apporte rien. Convention : au moins 4 titres
+    de niveau 1 (Introduction/parties/Conclusion comprises)."""
+    return sum(1 for b in blocks if b["kind"] == "h1") >= min_headings
+
+
 def sommaire_pages(blocks):
     """Nombre de pages de sommaire, connu AVANT de composer le corps (pour numéroter les pages)."""
     entries = [{"level": 0, "text": b["text"], "page": 0} for b in blocks if b["kind"] == "h1"]
@@ -470,201 +498,4 @@ def render_sommaire(entries, out_pdf, style):
             cl = g["clines"]
             if style["marker"] is not None:
                 c.setStrokeColor(style["marker"])
-                c.setLineWidth(style["marker_w"])
-                c.line(left_x - 14, y + 4, left_x - 14, y - ROW_H * (len(cl) - 1) - 10)
-            c.setFillColor(style["chapter"])
-            c.setFont("Helvetica-Bold", 11)
-            cy = y
-            for line in cl:
-                c.drawString(left_x, cy, line)
-                if g["solo_page"] and line == cl[-1]:
-                    c.drawRightString(page_x, cy, g["solo_page"])
-                cy -= ROW_H
-            iy = cy
-            c.setFont("Helvetica", 10.5)
-            for text, page in g["items"]:
-                c.setFillColor(style["item"])
-                c.drawString(text_x, iy, text)
-                c.setFillColor(style["page"])
-                c.setFont("Helvetica-Bold", 10.5)
-                c.drawRightString(page_x, iy, page)
-                c.setFont("Helvetica", 10.5)
-                iy -= ROW_H
-            last_baseline = y - ROW_H * (len(cl) + len(g["items"]) - 1)
-            rule_y = last_baseline - a
-            c.setStrokeColor(style["sep"])
-            c.setLineWidth(style["sep_w"])
-            c.line(left_x, rule_y, page_x, rule_y)
-            y = rule_y - (s - a)
-        c.showPage()
-    c.save()
-    return len(pages)
-
-
-def build_sommaire(entries, out_pdf):
-    return render_sommaire(entries, out_pdf, STD_SOM)
-
-
-# --------------------------------------------------------------------------------------
-# 5. PAGE DE GARDE STANDARD (école) — géométrie du kit, 3 chevauchements corrigés
-# --------------------------------------------------------------------------------------
-def spaced(s):
-    return "   ".join(" ".join(w) for w in s.split())
-
-
-def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text, fields,
-                                 theme_lines, crest_path, logo_path, doc_word="DEVOIR"):
-    c = canvas_module.Canvas(out_pdf, pagesize=A4)
-
-    def Y(t):  # t = distance depuis le haut de la page
-        return H - t
-
-    m = 24
-    c.setStrokeColor(BLACK)
-    c.setLineWidth(0.8)
-    c.rect(m, m, W - 2 * m, H - 2 * m)
-
-    def rule(t, half):
-        c.setStrokeColor(LIGHT_GREY)
-        c.setLineWidth(0.8)
-        c.line(W / 2 - half, Y(t), W / 2 + half, Y(t))
-
-    # blason : détaché du cadre (dans le kit, il touchait le filet supérieur)
-    if crest_path:
-        im = Image.open(crest_path)
-        cw, ch = im.size
-        crest_h = 186
-        crest_w = crest_h * cw / ch
-        c.drawImage(crest_path, W / 2 - crest_w / 2, Y(40) - crest_h, width=crest_w,
-                    height=crest_h, mask="auto")
-
-    c.setFillColor(BLACK)
-    c.setFont("Helvetica", 11)
-    c.drawCentredString(W / 2, Y(243), spaced(school_line1))
-    c.setFont("Times-Bold", 26)
-    c.drawCentredString(W / 2, Y(273), school_line2)
-    rule(285, 140)
-
-    c.setFont("Times-Bold", 40)
-    c.drawCentredString(W / 2, Y(347), doc_word)
-    rule(360, 100)
-
-    # thème du devoir (présent dans le texte source, absent du gabarit d'origine)
-    c.setFont("Times-Italic", 13)
-    ty = 384
-    for line in theme_lines:
-        c.drawCentredString(W / 2, Y(ty), line)
-        ty += 17
-
-    box_w, box_h, box_top = 218, 55.5, 414
-    c.setStrokeColor(BLACK)
-    c.setLineWidth(1)
-    c.rect(W / 2 - box_w / 2, Y(box_top) - box_h, box_w, box_h)
-    c.setFillColor(GREY)
-    c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(W / 2, Y(box_top + 22), spaced("ANNÉE SCOLAIRE"))
-    c.setFillColor(BLACK)
-    c.setFont("Times-Bold", 17)
-    c.drawCentredString(W / 2, Y(box_top + 45), year_text)
-
-    label_x = 130
-    underline_end = W - label_x          # symétrique : le kit s'arrêtait sur le cadre
-    t0, step = 496, 42
-    for i, (label, value) in enumerate(fields):
-        t = t0 + step * i
-        c.setFillColor(GREY)
-        c.setFont("Helvetica-Bold", 8)
-        c.drawString(label_x, Y(t), label)
-        c.setFillColor(BLACK)
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(label_x, Y(t + 17), value)
-        c.setStrokeColor(LIGHT_GREY)
-        c.setLineWidth(0.6)
-        c.line(label_x, Y(t + 19), underline_end, Y(t + 19))
-
-    c.setStrokeColor(LIGHT_GREY)
-    c.setLineWidth(0.8)
-    c.line(W / 2 - 130, Y(708.5), W / 2 + 130, Y(708.5))
-    c.setFillColor(BLACK)
-    c.setFont("Times-Italic", 11)
-    c.drawCentredString(W / 2, Y(735), "\u00ab L\u2019excellence ne s\u2019improvise pas. Elle s\u2019organise. \u00bb")
-
-    # logo NEXORIA : remonté pour rester à l'intérieur du cadre (il le chevauchait)
-    nim = Image.open(logo_path)
-    nw, nh = nim.size
-    fh = 52
-    fw_ = fh * nw / nh
-    c.drawImage(logo_path, W / 2 - fw_ / 2, Y(746) - fh, width=fw_, height=fh, mask="auto")
-
-    c.showPage()
-    c.save()
-
-
-# --------------------------------------------------------------------------------------
-# 6. FUSION + MÉTADONNÉES
-# --------------------------------------------------------------------------------------
-def merge(parts, out_pdf, title, author):
-    w = PdfWriter()
-    for p in parts:
-        for page in PdfReader(p).pages:
-            w.add_page(page)
-    w.add_metadata({"/Title": title, "/Author": author, "/Creator": "NEXORIA",
-                    "/Producer": "NEXORIA — Pack Standard"})
-    with open(out_pdf, "wb") as f:
-        w.write(f)
-
-
-# --------------------------------------------------------------------------------------
-# 7. FIN DE DOCUMENT, ÉQUILIBRAGE DE LA DERNIÈRE PAGE, RAPPORT DE REVUE
-# --------------------------------------------------------------------------------------
-def is_complete(blocks):
-    """Le document est considéré comme terminé s'il se ferme sur une conclusion, une bibliographie
-    ou des annexes. Sinon on n'affiche PAS « Fin du document » (texte peut-être incomplet)."""
-    h1 = [b for b in blocks if b["kind"] == "h1"]
-    return bool(h1) and (h1[-1]["text"].startswith("CONCLUSION") or h1[-1].get("sect") in ("biblio", "annexe"))
-
-
-def review_report(blocks):
-    h1 = [b["text"] for b in blocks if b["kind"] == "h1"]
-    notes = []
-    if not any(t.startswith("CONCLUSION") for t in h1):
-        notes.append("REQUIRES_REVIEW : aucune CONCLUSION détectée (texte peut-être incomplet)")
-    if not any(section_kind(t) == "biblio" for t in h1):
-        notes.append("INFO : aucune bibliographie fournie (rien n'a été inventé)")
-    if not any(section_kind(t) == "annexe" for t in h1):
-        notes.append("INFO : aucune annexe fournie")
-    return notes
-
-
-def set_gap(g):
-    """Espace entre paragraphes (13 pt de référence) : seul réglage autorisé pour équilibrer les pages."""
-    CFG["gap"] = g
-    for k in ("body", "body_kwn", "body_indent", "body_indent_kwn", "bullet_last", "quote"):
-        STYLES[k].spaceAfter = g
-
-
-def last_page_fill(pdf_path):
-    import pdfplumber
-    with pdfplumber.open(pdf_path) as pdf:
-        n = len(pdf.pages)
-        ws = pdf.pages[-1].crop((0, MARGIN_TB - 2, W, H - MARGIN_TB + 2)).extract_words()
-        if not ws:
-            return n, 0.0
-        return n, (max(w["bottom"] for w in ws) - MARGIN_TB) / (H - 2 * MARGIN_TB)
-
-
-def build_balanced(builder, blocks, out_pdf, running, min_fill=0.35,
-                   gaps=(13, 12.5, 13.5, 12, 14, 11.5, 14.5)):
-    """Évite une dernière page presque vide (« page orpheline ») sans rien ajouter ni agrandir le texte :
-    on ne fait varier que l'espace entre paragraphes (±1,5 pt autour de 13 pt), uniformément sur tout le document."""
-    tries = []
-    for g in gaps:
-        set_gap(g)
-        toc = builder(blocks, out_pdf, running)
-        n, fill = last_page_fill(out_pdf)
-        tries.append((g, n, round(fill, 2)))
-        if n <= 1 or fill >= min_fill:
-            return toc, g, tries
-    set_gap(13)
-    toc = builder(blocks, out_pdf, running)
-    return toc, 13, tries
+                c.setLineWidth(sty
