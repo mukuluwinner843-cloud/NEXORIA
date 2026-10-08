@@ -1,100 +1,72 @@
 # -*- coding: utf-8 -*-
 """
-NEXORIA — logique de génération (indépendante du framework web)
-==================================================================
-Séparée de app.py pour deux raisons :
-1. Elle peut être testée seule, sans serveur web, avec de simples dictionnaires Python.
-2. Si demain le canal change (plus de webhook direct, plus n8n), cette partie ne bouge pas.
+NEXORIA — service de mise en page (Phase 1 de l'automatisation)
+=================================================================
+Couche web fine au-dessus de core.py. C'est ce fichier que n8n appelle.
 
-build_pdf() est LA fonction qui compte : elle refait exactement la chaîne validée
-manuellement pendant les tests (texte brut -> structure -> corps -> sommaire ->
-couverture -> fusion), pour les packs Standard et Excellence.
+Entrée  : JSON avec les informations de l'élève + le texte brut du devoir.
+Sortie  : le PDF fini (Standard ou Excellence), prêt à être renvoyé sur WhatsApp.
+
+Sécurité minimale : une clé secrète partagée (variable d'environnement
+NEXORIA_API_KEY), à passer dans l'en-tête HTTP  X-API-Key.
 """
 import os
-import re
-import tempfile
+from typing import Literal, Optional
 
-import nexoria_engine_standard as std
-import nexoria_engine_excellence as exc
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+from pydantic import BaseModel, Field
 
-ASSETS = os.path.dirname(__file__)  # tous les fichiers sont désormais côte à côte, à plat
+import core
 
-REQUIRED_META = ["etablissement", "eleve", "classe", "matiere", "titulaire", "theme", "annee", "date"]
+API_KEY = os.environ.get("NEXORIA_API_KEY")  # défini sur l'hébergeur, jamais écrit ici en dur
 
+app = FastAPI(title="NEXORIA Layout Service", version="1.0")
 
-class GenerationError(Exception):
-    """Erreur métier (entrée invalide) — distincte d'un bug interne."""
-    def __init__(self, message, status_code=400):
-        super().__init__(message)
-        self.status_code = status_code
-
-
-def split_school_line(etablissement: str):
-    m = re.match(r"^(Complexe Scolaire|Institut(?:\s+Sup[ée]rieur)?|Lyc[ée]e|Coll[eè]ge)\s+(.+)$",
-                etablissement, re.I)
-    if m:
-        return m.group(1).upper(), m.group(2).upper()
-    return "", etablissement.upper()
+# Permet au panneau de génération (page HTML locale, ouverte depuis le téléphone)
+# d'appeler ce service depuis un navigateur. Sans danger : tout appel doit de toute
+# façon fournir la clé API secrète pour obtenir un résultat.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["POST", "GET"],
+    allow_headers=["*"],
+)
 
 
-def validate_meta(meta: dict):
-    missing = [k for k in REQUIRED_META if not str(meta.get(k, "")).strip()]
-    if missing:
-        raise GenerationError("Champs manquants dans meta : " + ", ".join(missing))
+class Meta(BaseModel):
+    etablissement: str = Field(..., examples=["Complexe Scolaire Francisco Palau"])
+    eleve: str
+    classe: str = Field("", description="Laisser vide si le niveau/la classe n'est pas précisé sur le document")
+    matiere: str
+    titulaire: str = Field(..., description="Nom de l'enseignant/encadreur")
+    theme: str = Field(..., description="Titre ou thème du devoir")
+    annee: str = Field(..., examples=["2026-2027"])
+    date: str = Field(..., description="Date de remise, telle qu'à afficher")
+    doc_word: str = Field("DEVOIR", description="Mot affiché en gros sur la couverture")
 
 
-def build_pdf(pack: str, meta: dict, corps_texte: str) -> bytes:
-    if pack not in ("standard", "excellence"):
-        raise GenerationError("pack doit être 'standard' ou 'excellence' (reçu : %r)" % pack)
-    validate_meta(meta)
+class GenerateRequest(BaseModel):
+    pack: Literal["standard", "excellence"]
+    meta: Meta
+    corps_texte: str = Field(..., description="Texte brut du devoir : INTRODUCTION, I., II., ... CONCLUSION")
 
-    body_lines = [l.strip() for l in corps_texte.split("\n") if l.strip()]
-    if not body_lines:
-        raise GenerationError("corps_texte est vide")
-    blocks = std.classify(body_lines)
-    if not any(b["kind"] == "h1" for b in blocks):
-        raise GenerationError(
-            "Structure non reconnue : aucun titre détecté (INTRODUCTION, I., II., ... "
-            "CONCLUSION). On ne devine pas une mise en page sans structure claire.", 422)
 
-    doc_word = meta.get("doc_word") or "DEVOIR"
-    line1, line2 = split_school_line(meta["etablissement"])
-    year = re.sub(r"\s*[-\u2013\u2014]\s*", " \u2013 ", meta["annee"])
-    fields = [
-        ("\u00c9L\u00c8VE", meta["eleve"].upper()),
-        ("CLASSE", meta["classe"].upper()),
-        ("MATI\u00c8RE", meta["matiere"].upper()),
-        ("ENCADREUR", meta["titulaire"].upper()),
-        ("DATE DE REMISE", meta["date"]),
-    ]
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
-    with tempfile.TemporaryDirectory() as d:
-        body_pdf = os.path.join(d, "body.pdf")
-        som_pdf = os.path.join(d, "som.pdf")
-        cover_pdf = os.path.join(d, "cover.pdf")
-        final_pdf = os.path.join(d, "final.pdf")
 
-        if pack == "standard":
-            theme_lines = std.balance(meta["theme"], "Times-Italic", 13, 330)
-            toc, _gap, _tries = std.build_balanced(std.build_body, blocks, body_pdf, meta["matiere"].upper())
-            std.build_sommaire(toc, som_pdf)
-            std.render_cover_school_standard(
-                cover_pdf, line1, line2, year, fields, theme_lines,
-                crest_path=None,
-                logo_path=os.path.join(ASSETS, "nexoria_logo_grey.png"),
-                doc_word=doc_word,
-            )
-        else:
-            theme_lines = exc.balance(meta["theme"], "Times-Italic", 13, 330)
-            toc, _gap, _tries = exc.build_balanced(exc.build_body_excellence, blocks, body_pdf, meta["matiere"].upper())
-            exc.build_sommaire_excellence(toc, som_pdf)
-            exc.render_cover_school_excellence(
-                cover_pdf, line1, line2, year, fields, theme_lines,
-                kit_dir=ASSETS + "/",
-                doc_word=doc_word,
-                crest_path=None,
-            )
-
-        std.merge([cover_pdf, som_pdf, body_pdf], final_pdf, title=meta["theme"], author=meta["eleve"])
-        with open(final_pdf, "rb") as f:
-            return f.read()
+@app.post("/generate")
+def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(None)):
+    if API_KEY and x_api_key != API_KEY:
+        raise HTTPException(401, "Clé API invalide ou manquante (en-tête X-API-Key).")
+    try:
+        pdf_bytes = core.build_pdf(req.pack, req.meta.model_dump(), req.corps_texte)
+    except core.GenerationError as e:
+        raise HTTPException(e.status_code, str(e))
+    filename = "%s_%s_%s.pdf" % (req.meta.doc_word, req.meta.eleve.replace(" ", "_"), req.pack.upper())
+    return Response(content=pdf_bytes, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="%s"' % filename})
+    
