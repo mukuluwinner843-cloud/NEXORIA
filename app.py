@@ -14,6 +14,7 @@ import os
 from typing import Literal, Optional
 
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -23,11 +24,21 @@ API_KEY = os.environ.get("NEXORIA_API_KEY")  # défini sur l'hébergeur, jamais 
 
 app = FastAPI(title="NEXORIA Layout Service", version="1.0")
 
+# Permet au panneau de génération (page HTML locale, ouverte depuis le téléphone)
+# d'appeler ce service depuis un navigateur. Sans danger : tout appel doit de toute
+# façon fournir la clé API secrète pour obtenir un résultat.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["POST", "GET"],
+    allow_headers=["*"],
+)
+
 
 class Meta(BaseModel):
     etablissement: str = Field(..., examples=["Complexe Scolaire Francisco Palau"])
     eleve: str
-    classe: str
+    classe: str = Field("", description="Laisser vide si le niveau/la classe n'est pas précisé sur le document")
     matiere: str
     titulaire: str = Field(..., description="Nom de l'enseignant/encadreur")
     theme: str = Field(..., description="Titre ou thème du devoir")
@@ -58,3 +69,4 @@ def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(None)):
     filename = "%s_%s_%s.pdf" % (req.meta.doc_word, req.meta.eleve.replace(" ", "_"), req.pack.upper())
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": 'attachment; filename="%s"' % filename})
+    
