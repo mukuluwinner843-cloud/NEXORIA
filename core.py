@@ -26,11 +26,9 @@ REQUIRED_META = ["etablissement", "eleve", "matiere", "titulaire", "theme", "ann
 # partenariats — aucun blason n'est affiché pour un établissement non reconnu.
 KNOWN_CRESTS = {
     "francisco palau": "crest_grey.png",
-    "gianelli": "crest_gianelli.png",
 }
 KNOWN_CRESTS_EXCELLENCE = {
     "francisco palau": "crest_transparent.png",
-    "gianelli": "crest_gianelli.png",
 }
 
 
@@ -124,6 +122,6 @@ def build_pdf(pack: str, meta: dict, corps_texte: str) -> bytes:
             )
 
         parts.append(body_pdf)
-        std.merge(parts, final_pdf, title=meta["theme"], author=meta["eleve"], pack=pack)
+        std.merge(parts, final_pdf, title=meta["theme"], author=meta["eleve"])
         with open(final_pdf, "rb") as f:
             return f.read()
