@@ -271,14 +271,25 @@ def build_body_excellence(blocks, out_pdf, running_title):
 
 
 # --------------------------------------------------------------------------------------
-# SOMMAIRE EXCELLENCE (titre marine, filet or, repères or, filets crème)
+# SOMMAIRE EXCELLENCE (titre marine, filet or, repères or, filets crème + leaders)
 # --------------------------------------------------------------------------------------
-EXC_SOM = dict(title=NAVY, title_rule=GOLD_C, title_rule_w=1.3, chapter=NAVY,
-               item=colors.HexColor("#3A3A3A"), page=NAVY, sep=SEP_LINE, sep_w=0.8,
-               marker=GOLD_C, marker_w=2.2)
+EXC_SOM = dict(
+    title=NAVY,
+    title_rule=GOLD_C,
+    title_rule_w=1.3,
+    chapter=NAVY,
+    item=colors.HexColor("#3A3A3A"),
+    page=NAVY,
+    sep=SEP_LINE,
+    sep_w=0.8,
+    marker=GOLD_C,
+    marker_w=2.2,
+    leaders=True,          # points de conduite élégants (nouveau)
+)
 
 
 def build_sommaire_excellence(entries, out_pdf):
+    """Sommaire Excellence : style premium + points de conduite + repères or."""
     return render_sommaire(entries, out_pdf, EXC_SOM)
 
 

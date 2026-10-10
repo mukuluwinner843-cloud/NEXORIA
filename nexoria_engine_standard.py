@@ -444,7 +444,9 @@ def som_layout(groups, s_default=40.0, s_min=30.0):
     s_max = (span - sum(hs)) / (max(n - 1, 0) + RULE_RATIO)
     if s_max >= s_min:
         return [groups], min(s_default, s_max)
-    s = s_default
+    # Pas assez de place sur une page, même à 30 pt : le sommaire continue sur plusieurs pages,
+    # avec l'espacement minimal (30 pt) pour limiter le nombre de pages.
+    s = s_min
     a = RULE_RATIO * s
     pages, cur, sh = [], [], 0.0
     for g, h in zip(groups, hs):
@@ -472,52 +474,110 @@ def sommaire_pages(blocks):
     return len(pages)
 
 
-STD_SOM = dict(title=BLACK, title_rule=BLACK, title_rule_w=1.0, chapter=BLACK,
-               item=colors.HexColor("#333333"), page=BLACK, sep=GREY_LINE, sep_w=0.7, marker=None, marker_w=0)
+# Styles de sommaire
+# - Standard  : sobre, filets gris, hiérarchie claire
+# - Excellence: titre marine, filet or, repères or verticaux, filets crème
+STD_SOM = dict(
+    title=BLACK, title_rule=BLACK, title_rule_w=1.0,
+    chapter=BLACK, item=colors.HexColor("#333333"), page=BLACK,
+    sep=GREY_LINE, sep_w=0.7, marker=None, marker_w=0,
+    leaders=False,          # points de conduite (……) désactivés en Standard
+)
+
+# Excellence (défini aussi dans le moteur Excellence, repris ici pour cohérence)
+EXC_SOM_BASE = dict(
+    title=colors.HexColor("#16233F"),
+    title_rule=colors.HexColor("#B4924C"),
+    title_rule_w=1.3,
+    chapter=colors.HexColor("#16233F"),
+    item=colors.HexColor("#3A3A3A"),
+    page=colors.HexColor("#16233F"),
+    sep=colors.HexColor("#E3D9C4"),
+    sep_w=0.8,
+    marker=colors.HexColor("#B4924C"),
+    marker_w=2.2,
+    leaders=True,           # points de conduite élégants en Excellence
+)
+
+
+def _draw_leaders(c, x_start, x_end, y, color, gap=3.2):
+    """Points de conduite discrets entre le titre et le numéro de page."""
+    c.setFillColor(color)
+    x = x_start
+    while x < x_end - 2:
+        c.circle(x, y + 1.5, 0.55, fill=1, stroke=0)
+        x += gap
 
 
 def render_sommaire(entries, out_pdf, style):
+    """
+    Sommaire adaptatif NEXORIA (Standard ou Excellence).
+    - Espacement intelligent (40 → 30 pt) puis multi-page si nécessaire
+    - Option leaders (points de conduite) pour un rendu plus académique
+    - Repères verticaux or en mode Excellence
+    """
     groups = som_groups(entries, CFG["cover_pages"])
     pages, s = som_layout(groups)
     a = RULE_RATIO * s
     c = canvas_module.Canvas(out_pdf, pagesize=A4)
     left_x, text_x, page_x = 69, 243, 528
+    use_leaders = style.get("leaders", False)
+
     for pi, pg in enumerate(pages):
+        # Titre
         c.setFillColor(style["title"])
         c.setFont("Helvetica-Bold", 28)
         c.drawString(left_x, H - 90, "SOMMAIRE")
         if pi > 0:
             c.setFont("Helvetica", 11)
             c.setFillColor(GREY)
-            c.drawString(left_x + stringWidth("SOMMAIRE", "Helvetica-Bold", 28) + 10, H - 90, "(suite)")
+            c.drawString(left_x + stringWidth("SOMMAIRE", "Helvetica-Bold", 28) + 10,
+                         H - 90, "(suite)")
         c.setStrokeColor(style["title_rule"])
         c.setLineWidth(style["title_rule_w"])
         c.line(left_x, H - 100, page_x, H - 100)
+
         y = SOM_TOP
         for g in pg:
             cl = g["clines"]
-            if style["marker"] is not None:
+            # Repère vertical (Excellence)
+            if style.get("marker") is not None:
                 c.setStrokeColor(style["marker"])
                 c.setLineWidth(style["marker_w"])
-                c.line(left_x - 14, y + 4, left_x - 14, y - ROW_H * (len(cl) - 1) - 10)
+                c.line(left_x - 14, y + 4,
+                       left_x - 14, y - ROW_H * (len(cl) - 1) - 10)
+
+            # Chapitre (niveau 1)
             c.setFillColor(style["chapter"])
             c.setFont("Helvetica-Bold", 11)
             cy = y
             for line in cl:
                 c.drawString(left_x, cy, line)
                 if g["solo_page"] and line == cl[-1]:
+                    if use_leaders:
+                        tw = stringWidth(line, "Helvetica-Bold", 11)
+                        _draw_leaders(c, left_x + tw + 8, page_x - 22, cy,
+                                      colors.HexColor("#C8C0B0"))
+                    c.setFillColor(style["page"])
                     c.drawRightString(page_x, cy, g["solo_page"])
+                    c.setFillColor(style["chapter"])
                 cy -= ROW_H
+
+            # Sous-entrées (niveau 2)
             iy = cy
-            c.setFont("Helvetica", 10.5)
             for text, page in g["items"]:
+                c.setFont("Helvetica", 10.5)
                 c.setFillColor(style["item"])
                 c.drawString(text_x, iy, text)
+                if use_leaders:
+                    tw = stringWidth(text, "Helvetica", 10.5)
+                    _draw_leaders(c, text_x + tw + 6, page_x - 22, iy,
+                                  colors.HexColor("#D0C8B8"))
                 c.setFillColor(style["page"])
                 c.setFont("Helvetica-Bold", 10.5)
                 c.drawRightString(page_x, iy, page)
-                c.setFont("Helvetica", 10.5)
                 iy -= ROW_H
+
             last_baseline = y - ROW_H * (len(cl) + len(g["items"]) - 1)
             rule_y = last_baseline - a
             c.setStrokeColor(style["sep"])
@@ -632,13 +692,20 @@ def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text,
 # --------------------------------------------------------------------------------------
 # 6. FUSION + MÉTADONNÉES
 # --------------------------------------------------------------------------------------
-def merge(parts, out_pdf, title, author):
+def merge(parts, out_pdf, title, author, pack="standard"):
+    """Fusionne les parties et pose les métadonnées correctes selon le pack."""
     w = PdfWriter()
     for p in parts:
         for page in PdfReader(p).pages:
             w.add_page(page)
-    w.add_metadata({"/Title": title, "/Author": author, "/Creator": "NEXORIA",
-                    "/Producer": "NEXORIA — Pack Standard"})
+    producer = "NEXORIA — Pack Excellence" if pack == "excellence" else "NEXORIA — Pack Standard"
+    w.add_metadata({
+        "/Title": title,
+        "/Author": author,
+        "/Creator": "NEXORIA",
+        "/Producer": producer,
+        "/Subject": "Document académique généré par NEXORIA",
+    })
     with open(out_pdf, "wb") as f:
         w.write(f)
 

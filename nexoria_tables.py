@@ -12,6 +12,7 @@ NEXORIA — extension « tableaux et schémas »
 3. table_flowables() / diagram_flowable() — rendu sobre (Pack Standard) ou
    avec palette (Pack Excellence, via le paramètre palette/line_color).
 """
+import html
 import re
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
@@ -39,6 +40,11 @@ def paragraphs_from_markdown(raw):
     return paras
 
 
+def _cells(line):
+    """« a | b | c » -> ['a', 'b', 'c'] (tableaux à N colonnes ; barres de bord ignorées)."""
+    return [c.strip() for c in line.strip().strip("|").split("|")]
+
+
 def _is_short_label(p):
     return len(p) <= 70 and not (p.endswith(".") and len(p) > 40)
 
@@ -55,16 +61,14 @@ def extract_special_blocks(paras):
             i += 1
             rows = []
             while i < n and TABLE_ROW_RE.match(paras[i]):
-                m = TABLE_ROW_RE.match(paras[i])
-                rows.append((m.group(1).strip(), m.group(2).strip()))
+                rows.append(_cells(paras[i]))
                 i += 1
             out.append({"special": "table", "caption": caption, "rows": rows})
             continue
         if TABLE_ROW_RE.match(p) and not cap_m:
             j, rows = i, []
             while j < n and TABLE_ROW_RE.match(paras[j]):
-                m = TABLE_ROW_RE.match(paras[j])
-                rows.append((m.group(1).strip(), m.group(2).strip()))
+                rows.append(_cells(paras[j]))
                 j += 1
             if len(rows) >= 2:
                 out.append({"special": "table", "caption": None, "rows": rows})
@@ -121,12 +125,19 @@ def table_flowables(caption, rows, fw, palette=None):
                                 leading=13, textColor=pal["text"])
     cell_style = ParagraphStyle("tbl_cell", fontName="Helvetica", fontSize=10,
                                 leading=13.5, textColor=pal["text"])
-    col0 = max(1.15 * 72, fw * 0.30)
-    col1 = fw - col0
-    data = [[Paragraph(rows[0][0], head_style), Paragraph(rows[0][1], head_style)]]
-    for a, b in rows[1:]:
-        data.append([Paragraph(a, cell_style), Paragraph(b, cell_style)])
-    t = Table(data, colWidths=[col0, col1], repeatRows=1)
+    ncols = max(len(r) for r in rows)
+    # 2 colonnes : 1re colonne étroite (libellé) ; plus de colonnes : largeurs égales
+    if ncols == 2:
+        col0 = max(1.15 * 72, fw * 0.30)
+        widths = [col0, fw - col0]
+    else:
+        widths = [fw / ncols] * ncols
+    rows = [r + [""] * (ncols - len(r)) for r in rows]
+    esc = lambda x: html.escape(x, quote=False)
+    data = [[Paragraph(esc(c), head_style) for c in rows[0]]]
+    for r in rows[1:]:
+        data.append([Paragraph(esc(c), cell_style) for c in r])
+    t = Table(data, colWidths=widths, repeatRows=1)
     style = [
         ("GRID", (0, 0), (-1, -1), pal["grid_w"], pal["grid"]),
         ("BACKGROUND", (0, 0), (-1, 0), pal["head_bg"]),

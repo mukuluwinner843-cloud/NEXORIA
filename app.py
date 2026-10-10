@@ -10,7 +10,10 @@ Sortie  : le PDF fini (Standard ou Excellence), prêt à être renvoyé sur What
 Sécurité minimale : une clé secrète partagée (variable d'environnement
 NEXORIA_API_KEY), à passer dans l'en-tête HTTP  X-API-Key.
 """
+import hmac
 import os
+import re
+import unicodedata
 from typing import Literal, Optional
 
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
@@ -22,6 +25,23 @@ import core
 import extract
 
 API_KEY = os.environ.get("NEXORIA_API_KEY")  # défini sur l'hébergeur, jamais écrit ici en dur
+
+
+def check_key(x_api_key: Optional[str]):
+    """Fermé par défaut : sans NEXORIA_API_KEY configurée sur l'hébergeur, le service refuse tout appel
+    (au lieu de rester ouvert à tout le monde)."""
+    if not API_KEY:
+        raise HTTPException(503, "Service non configuré : NEXORIA_API_KEY absente sur l'hébergeur.")
+    if not x_api_key or not hmac.compare_digest(x_api_key, API_KEY):
+        raise HTTPException(401, "Clé API invalide ou manquante (en-tête X-API-Key).")
+
+
+def safe_filename(*parts):
+    """Nom de fichier ASCII sûr pour l'en-tête HTTP (un nom avec « ’ » ou un guillemet ferait planter la réponse)."""
+    raw = "_".join(p for p in parts if p)
+    ascii_ = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", ascii_).strip("_") or "document"
+
 
 app = FastAPI(title="NEXORIA Layout Service", version="1.0")
 
@@ -61,13 +81,12 @@ def health():
 
 @app.post("/generate")
 def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(None)):
-    if API_KEY and x_api_key != API_KEY:
-        raise HTTPException(401, "Clé API invalide ou manquante (en-tête X-API-Key).")
+    check_key(x_api_key)
     try:
         pdf_bytes = core.build_pdf(req.pack, req.meta.model_dump(), req.corps_texte)
     except core.GenerationError as e:
         raise HTTPException(e.status_code, str(e))
-    filename = "%s_%s_%s.pdf" % (req.meta.doc_word, req.meta.eleve.replace(" ", "_"), req.pack.upper())
+    filename = safe_filename(req.meta.doc_word, req.meta.eleve, req.pack.upper()) + ".pdf"
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": 'attachment; filename="%s"' % filename})
 
@@ -76,8 +95,7 @@ def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(None)):
 async def extract_document(file: UploadFile = File(...), x_api_key: Optional[str] = Header(None)):
     """Lit un .docx ou .pdf déposé et renvoie son texte + la liste des titres reconnus.
     Ne rédige et ne complète rien : le texte renvoyé est celui du document."""
-    if API_KEY and x_api_key != API_KEY:
-        raise HTTPException(401, "Clé API invalide ou manquante (en-tête X-API-Key).")
+    check_key(x_api_key)
     data = await file.read()
     try:
         return extract.extract_document(file.filename, data)
