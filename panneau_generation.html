@@ -202,6 +202,27 @@
         <option>RAPPORT</option>
       </select>
     </div>
+    <div class="row2">
+      <div class="field">
+        <label for="modele">Modèle de sommaire</label>
+        <select id="modele">
+          <option value="classique">Classique</option>
+          <option value="pilules">Pilules</option>
+          <option value="numerote">Numéroté</option>
+          <option value="chiffres">Chiffres en cercle</option>
+          <option value="colonnes">Colonnes</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="police">Police</label>
+        <select id="police">
+          <option value="defaut">Par défaut</option>
+          <option value="times">Times</option>
+          <option value="helvetica">Helvetica</option>
+          <option value="dejavu-sans">DejaVu Sans</option>
+        </select>
+      </div>
+    </div>
   </section>
 
   <section>
@@ -337,7 +358,9 @@ Texte de conclusion."></textarea>
         date: val("date"),
         doc_word: val("docword") || "DEVOIR"
       },
-      corps_texte: document.getElementById("corps").value
+      corps_texte: document.getElementById("corps").value,
+      sommaire: val("modele") || "classique",
+      police: val("police") || "defaut"
     };
 
     var btn = document.getElementById("go");

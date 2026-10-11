@@ -10,9 +10,11 @@ fusion, pour les packs Standard et Excellence.
 import os
 import re
 import tempfile
+import threading
 
 import nexoria_engine_standard as std
 import nexoria_engine_excellence as exc
+import nexoria_sommaires as som
 from nexoria_tables import paragraphs_from_markdown, extract_special_blocks
 
 ASSETS = os.path.dirname(__file__)
@@ -26,10 +28,16 @@ REQUIRED_META = ["etablissement", "eleve", "matiere", "titulaire", "theme", "ann
 # partenariats — aucun blason n'est affiché pour un établissement non reconnu.
 KNOWN_CRESTS = {
     "francisco palau": "crest_grey.png",
+    "gianelli": "crest_gianelli.png",
 }
 KNOWN_CRESTS_EXCELLENCE = {
     "francisco palau": "crest_transparent.png",
+    "gianelli": "crest_gianelli.png",
 }
+
+
+# Le moteur garde des réglages globaux (polices, compteurs de pages) : une seule génération à la fois.
+_RENDER_LOCK = threading.Lock()
 
 
 class GenerationError(Exception):
@@ -60,10 +68,24 @@ def validate_meta(meta: dict):
         raise GenerationError("Champs manquants dans meta : " + ", ".join(missing))
 
 
-def build_pdf(pack: str, meta: dict, corps_texte: str) -> bytes:
+def build_pdf(pack: str, meta: dict, corps_texte: str,
+              sommaire: str = "classique", police: str = "defaut") -> bytes:
     if pack not in ("standard", "excellence"):
         raise GenerationError("pack doit être 'standard' ou 'excellence' (reçu : %r)" % pack)
+    if sommaire not in som.MODELES:
+        raise GenerationError("sommaire doit être l'un de : %s (reçu : %r)" % (", ".join(som.MODELES), sommaire))
+    if police not in som.POLICES_NOMS:
+        raise GenerationError("police doit être l'une de : %s (reçu : %r)" % (", ".join(som.POLICES_NOMS), police))
     validate_meta(meta)
+    with _RENDER_LOCK:
+        return _build(pack, meta, corps_texte, sommaire, police)
+
+
+def _build(pack, meta, corps_texte, sommaire, police):
+    try:
+        som.set_police(police)
+    except ValueError as e:
+        raise GenerationError(str(e))
 
     paras = paragraphs_from_markdown(corps_texte)
     if not paras:
@@ -93,14 +115,15 @@ def build_pdf(pack: str, meta: dict, corps_texte: str) -> bytes:
         cover_pdf = os.path.join(d, "cover.pdf")
         final_pdf = os.path.join(d, "final.pdf")
         want_sommaire = std.needs_sommaire(blocks)
-        std.CFG["cover_pages"] = 1 + (std.sommaire_pages(blocks) if want_sommaire else 0)
+        n_som = som.page_count(blocks, sommaire, pack, police) if want_sommaire else 0
+        std.CFG["cover_pages"] = 1 + n_som
         parts = [cover_pdf]
 
         if pack == "standard":
             theme_lines = std.balance(meta["theme"], "Times-Italic", 13, 330)
             toc, _gap, _tries = std.build_balanced(std.build_body, blocks, body_pdf, meta["matiere"].upper())
             if want_sommaire:
-                std.build_sommaire(toc, som_pdf)
+                som.render(toc, som_pdf, sommaire, pack, police, std.CFG["cover_pages"])
                 parts.append(som_pdf)
             std.render_cover_school_standard(
                 cover_pdf, line1, line2, year, fields, theme_lines,
@@ -112,7 +135,7 @@ def build_pdf(pack: str, meta: dict, corps_texte: str) -> bytes:
             theme_lines = exc.balance(meta["theme"], "Times-Italic", 13, 330)
             toc, _gap, _tries = exc.build_balanced(exc.build_body_excellence, blocks, body_pdf, meta["matiere"].upper())
             if want_sommaire:
-                exc.build_sommaire_excellence(toc, som_pdf)
+                som.render(toc, som_pdf, sommaire, pack, police, std.CFG["cover_pages"])
                 parts.append(som_pdf)
             exc.render_cover_school_excellence(
                 cover_pdf, line1, line2, year, fields, theme_lines,
@@ -122,6 +145,6 @@ def build_pdf(pack: str, meta: dict, corps_texte: str) -> bytes:
             )
 
         parts.append(body_pdf)
-        std.merge(parts, final_pdf, title=meta["theme"], author=meta["eleve"])
+        std.merge(parts, final_pdf, title=meta["theme"], author=meta["eleve"], pack=pack)
         with open(final_pdf, "rb") as f:
             return f.read()

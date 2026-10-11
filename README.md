@@ -124,3 +124,50 @@ de n8n pour l'envoi automatique.
   simultanées, Railway peut lancer plusieurs instances automatiquement
   (réglage "Replicas" dans les paramètres du service) — à activer quand le
   volume le justifiera, pas nécessaire au départ.
+
+---
+
+## 6. Améliorations intégrées (v3.1 — fusion Master Class)
+
+### Sommaire
+- **Adaptatif** : espacement intelligent (40 → 30 pt) puis multi-page si nécessaire. Jamais de débordement.
+- **Pack Standard** : sobre, filets gris, hiérarchie claire.
+- **Pack Excellence** : titre marine, filet or, repères verticaux or, **points de conduite** (……) élégants, filets crème.
+- Seuil intelligent : le sommaire n’apparaît que s’il y a au moins 4 titres de niveau 1 (sinon inutile).
+
+### Métadonnées PDF
+- `Producer` correctement renseigné :
+  - `NEXORIA — Pack Standard`
+  - `NEXORIA — Pack Excellence`
+- `Creator` = NEXORIA, `Author` = nom de l’élève, `Title` = thème du devoir.
+
+### Standards de qualité (référence Master Class)
+- Marges généreuses et régulières
+- Aucun titre orphelin
+- Alignements parfaits
+- Espaces blancs maîtrisés
+- Cohérence totale entre toutes les pages
+- Différenciation claire Standard vs Excellence
+- Le document doit valoriser l’élève et inspirer confiance
+
+### Couvertures
+- **Standard** : cadre simple, blason gris si école reconnue, logo Nexoria gris
+- **Excellence** : double cadre à coins ornés, blason couleur, filets or + losange, icônes + barres or, logo transparent
+
+Slogan officiel : *« L’excellence ne s’improvise pas. Elle s’organise. »*
+
+## 7. Version 3.4 — modèles de sommaire et polices
+
+Deux champs optionnels dans la requête `POST /generate` (absents = comportement v3.3) :
+
+| Champ | Valeurs | Effet |
+|---|---|---|
+| `sommaire` | `classique` (défaut), `pilules`, `numerote`, `chiffres`, `colonnes` | Mise en forme du sommaire (modèles fournis par NEXORIA). |
+| `police` | `defaut` (défaut), `times`, `helvetica`, `dejavu-sans` | Police du corps de texte et des sommaires, dans les deux packs. La couverture garde ses polices de kit. |
+
+`GET /modeles` renvoie la liste des valeurs acceptées (sans clé API).
+
+Limites connues :
+- Les sous-parties n'apparaissent dans le sommaire que si le moteur les reconnaît comme titres de niveau 2. Aujourd'hui l'index ne contient que les parties de niveau 1 : les modèles à sous-parties affichent alors les parties seules.
+- Les modèles `pilules` et `numerote` n'affichent que les grandes parties (choix de conception, comme sur les modèles).
+- Les modèles de couverture (rapport de stage, mémoire) ne sont pas encore intégrés.
