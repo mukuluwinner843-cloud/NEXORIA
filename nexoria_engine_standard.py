@@ -258,6 +258,13 @@ def plain_rule(space_before=4, space_after=10, thickness=0.8):
 DC_SIZE = 22
 
 
+def starts_with_caps(text):
+    """Paragraphe qui ouvre par un mot en capitales (« LE BATEAU… ») : pas de lettrine, sinon la
+    lettre est coupée du mot (« L E BATEAU »)."""
+    words = text.split()
+    return bool(words) and len(words[0]) >= 2 and words[0].isupper()
+
+
 def dropcap_split(text):
     """Lettrine : « L'Amérique » -> lettrine « L' » (l'apostrophe reste avec la lettre, comme en typographie française)."""
     m = re.match(r"^([A-Za-zÀ-ÖØ-öø-ÿ]['\u2019])(.*)$", text, re.S)
@@ -366,9 +373,10 @@ def build_body(blocks, out_pdf, running_title):
             story.append(plain_rule())
             st["fresh"], st["dc"] = True, b.get("sect", "body") == "body"
         elif kind == "p":
-            if st["dc"]:
+            dc_here = st["dc"] and not starts_with_caps(text)
+            st["dc"] = False
+            if dc_here:
                 story.append(simple_dropcap(text, body_style(kwn, False)))
-                st["dc"] = False
             else:
                 story.append(Paragraph(fr(text), body_style(kwn, not st["fresh"])))
             st["fresh"] = False
@@ -424,6 +432,8 @@ def som_chapter_lines(text, limit=58):
             lines.append(cur)
             cur = w
     lines.append(cur)
+    if len(lines) > 1 and not re.search(r"\w", lines[-1]):   # « : » seul sur une ligne
+        lines[-2] = lines[-2] + " " + lines.pop()
     return lines
 
 

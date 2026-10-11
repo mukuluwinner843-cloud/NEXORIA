@@ -201,6 +201,8 @@ def build_body_excellence(blocks, out_pdf, running_title):
         initiale or en ligne si le paragraphe tient sur 1 ligne. Corrige un déséquilibre
         visuel : une lettrine calée sur 3 lignes pour un paragraphe qui n'en fait que 2
         laisse un vide disproportionné sous la lettre."""
+        if starts_with_caps(text):
+            return Paragraph(fr(text), body_style(kwn, False)), 46
         if cp1252_ok(text) and "³" not in text and "²" not in text:
             dc = GoldDropCap(text, cap_lines=3)
             dc.wrap(fw, 10000)

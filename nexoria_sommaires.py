@@ -21,6 +21,7 @@ de niveau 2. Aujourd'hui l'index ne contient que les parties de niveau 1 : les m
 sous-parties affichent donc les parties seules tant qu'aucun niveau 2 n'est reconnu.
 """
 import os
+import re
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -112,6 +113,8 @@ def _wrap(text, font, size, maxw):
             cur = w
     if cur:
         lines.append(cur)
+    if len(lines) > 1 and not re.search(r"\w", lines[-1]):   # ponctuation seule : on la rattache
+        lines[-2] = lines[-2] + " " + lines.pop()
     return lines or [""]
 
 
