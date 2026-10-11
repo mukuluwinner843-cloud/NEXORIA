@@ -110,8 +110,9 @@ class GoldDropCap(Flowable):
 
 def gold_initial(text, style):
     """Paragraphe d'une seule ligne : initiale or de 22 pt en ligne (espace sous le bloc restitué)."""
-    first = html.escape(text[0], quote=False)
-    rest = fr(text[1:].lstrip())
+    first, tail = dropcap_split(text)
+    first = html.escape(first, quote=False)
+    rest = fr(tail.lstrip())
     h = '<font size="%d" face="Serif-Bold" color="%s">%s</font>%s' % (DC_SIZE, GOLD_HEX, first, rest)
     st = ParagraphStyle(style.name + "_gdc", parent=style,
                         spaceAfter=style.spaceAfter + (DC_SIZE - style.fontSize))

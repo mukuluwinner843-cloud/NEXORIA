@@ -25,6 +25,15 @@ PAGE_FOOTER_RE = re.compile(r"^Page \d+ sur \d+$")
 TOC_STYLE_RE = re.compile(r"^(TOC|Table des mati)", re.I)
 TOC_MARKER_RE = re.compile(r"^(SOMMAIRE|TABLE DES MATI\u00c8RES|TABLE DES MATIERES)$", re.I)
 TRAILING_PAGE_RE = re.compile(r"\s\d+$")
+# Un PDF produit par NEXORIA (renvoyé en entrée) porte sa couverture, son sommaire,
+# un en-tête courant et un pied de page « NOM NEXORIA Page n sur N » : rien de tout cela n'est du texte.
+# « GÉOGRAPHIE NEXORIA Page 2 sur 15 GÉOGRAPHIE » : pied de page (et en-tête répété) collé à une ligne de texte.
+FOOTER_INLINE_RE = re.compile(
+    r"(?:(?P<h>[A-ZÀ-Ý][A-ZÀ-Ý' -]{2,40}?)\s+)?NEXORIA\s+Page\s+\d+\s+sur\s+\d+(?:\s+(?P=h))?")
+FIN_DOC_RE = re.compile(r"^[\u2014\u2013-]\s*Fin\s+du\s+document\s*[\u2014\u2013-]$", re.I)
+INTRO_RE = re.compile(r"^INTRODUCTION$")
+FIN_DOC_INLINE_RE = re.compile(r"[\u2014\u2013-]\s*Fin\s+du\s+document\s*[\u2014\u2013-]")
+PREFIX_MARK_RE = re.compile(r"SOMMAIRE|NEXORIA|DEVOIR|ÉLÈVE|ELEVE", re.I)
 END_PUNCT = (".", ":", "?", "!", "\u00bb")
 
 
@@ -88,6 +97,28 @@ def _drop_toc(lines):
     return lines[:start] + lines[body:]
 
 
+def _running_headers(page_lines):
+    """En-têtes courants : une ligne courte en capitales qui revient en tête ou en pied de 3 pages ou plus."""
+    counts = {}
+    for pl in page_lines:
+        for l in set(pl[:2] + pl[-2:]):
+            if l.isupper() and len(l) <= 40:
+                counts[l] = counts.get(l, 0) + 1
+    return {l for l, c in counts.items() if c >= 3}
+
+
+def _drop_before_body(lines):
+    """Si ce qui précède l'INTRODUCTION est une couverture ou un sommaire (marques NEXORIA/SOMMAIRE),
+    on repart de l'INTRODUCTION : couverture et sommaire seront refaits par le moteur."""
+    for i, l in enumerate(lines):
+        if INTRO_RE.match(l) and not TRAILING_PAGE_RE.search(l):
+            prefix = lines[:i]
+            if prefix and any(PREFIX_MARK_RE.search(x) for x in prefix):
+                return lines[i:]
+            return lines
+    return lines
+
+
 def pdf_to_text(data):
     """Renvoie le texte d'un PDF à texte sélectionnable. Les PDF scannés ne sont pas gérés."""
     import pdfplumber
@@ -97,12 +128,26 @@ def pdf_to_text(data):
     except Exception:
         raise ExtractionError("PDF illisible.", 422)
 
-    lines = []
+    # Nettoyage page par page : un pied de page peut être coupé en deux lignes par l'extraction.
+    page_lines = []
     for pt in page_texts:
-        for l in pt.split("\n"):
-            l = l.strip()
-            if l and not PAGE_FOOTER_RE.match(l):
-                lines.append(l)
+        txt = "\n".join(l.strip() for l in pt.split("\n") if l.strip())
+        txt = FOOTER_INLINE_RE.sub("", txt)
+        txt = FIN_DOC_INLINE_RE.sub("", txt)
+        page_lines.append([l.strip() for l in txt.split("\n") if l.strip()])
+    headers = _running_headers(page_lines)
+    lines = []
+    for pl in page_lines:
+        for l in pl:
+            for h in headers:
+                if l.startswith(h + " "):
+                    l = l[len(h) + 1:].strip()
+                elif l.endswith(" " + h):
+                    l = l[: -len(h) - 1].strip()
+            if not l or PAGE_FOOTER_RE.match(l) or FIN_DOC_RE.match(l) or l in headers:
+                continue
+            lines.append(l)
+    lines = _drop_before_body(lines)
     lines = _drop_toc(lines)
     if not lines:
         raise ExtractionError(
@@ -129,6 +174,16 @@ def pdf_to_text(data):
     return "\n\n".join(paras)
 
 
+def _is_nexoria_pdf(data):
+    """Un PDF dont le producteur est NEXORIA : un document déjà mis en page, à réinjecter avec prudence."""
+    import pdfplumber
+    try:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            return "NEXORIA" in str((pdf.metadata or {}).get("Producer", "")).upper()
+    except Exception:
+        return False
+
+
 def extract_document(filename, data):
     if not data:
         raise ExtractionError("Fichier vide.", 422)
@@ -148,10 +203,16 @@ def extract_document(filename, data):
         raise ExtractionError("Aucun texte trouvé dans le document.", 422)
 
     titres = [p for p in paras if std.is_h1(p)]
-    return {
+    result = {
         "corps_texte": "\n\n".join(paras),
         "titres": titres,
         "titres_non_reconnus": suspects,
         "nb_paragraphes": len(paras),
         "nb_caracteres": sum(len(p) for p in paras),
     }
+    if name.endswith(".pdf") and _is_nexoria_pdf(data):
+        result["avertissement"] = (
+            "Ce PDF a été produit par NEXORIA. Les lettrines (première lettre des paragraphes) "
+            "et certaines lettres peuvent être mal relues à l'extraction. Pour un résultat fiable, "
+            "envoie le fichier Word (.docx) d'origine.")
+    return result

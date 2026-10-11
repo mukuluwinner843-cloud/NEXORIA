@@ -213,12 +213,36 @@ def paginate(groups, modele, pol):
     return pages
 
 
+def classique_layout(groups):
+    """Sommaire classique : une page si possible (v3.3). Sinon les parties sont réparties
+    également entre les pages, pour ne jamais laisser une page « (suite) » avec une seule ligne."""
+    pages, s = std.som_layout(groups)
+    if len(pages) <= 1:
+        return pages, s
+    n = len(groups)
+    s2 = std.som_layout.__defaults__[1]  # s_min (30 pt)
+    for k in range(2, n + 1):
+        size = -(-n // k)
+        chunks = [groups[i:i + size] for i in range(0, n, size)]
+        if len(chunks) != k:
+            continue
+        ok = True
+        for c in chunks:
+            used = sum(std.ROW_H * (len(g["clines"]) + len(g["items"]) - 1) for g in c)
+            if used + (len(c) - 1) * s2 + std.RULE_RATIO * s2 > std.SOM_TOP - std.SOM_BOTTOM:
+                ok = False
+                break
+        if ok:
+            return chunks, s2
+    return pages, s
+
+
 def page_count(blocks, modele, pack, police):
     """Nombre de pages de sommaire, connu AVANT de composer le corps (pour numéroter les pages).
     Calculé sur les titres de niveau 1 : c'est exactement ce que l'index du corps renvoie."""
     entries = [{"level": 0, "text": b["text"], "page": 0} for b in blocks if b["kind"] == "h1"]
     if modele == "classique":
-        pages, _ = std.som_layout(std.som_groups(entries, 0))
+        pages, _ = classique_layout(std.som_groups(entries, 0))
         return len(pages)
     pol = POLICES[police]
     return len(paginate(build_groups(entries, 0), modele, pol))
@@ -368,7 +392,7 @@ def _render_classique(entries, out_pdf, pack, pol, cover_pages):
     """Modèle classique : même géométrie et même espacement adaptatif que la v3.3, polices au choix."""
     style = exc.EXC_SOM if pack == "excellence" else std.STD_SOM
     groups = std.som_groups(entries, cover_pages)
-    pages, s = std.som_layout(groups)
+    pages, s = classique_layout(groups)
     a = std.RULE_RATIO * s
     c = canvas_module.Canvas(out_pdf, pagesize=A4)
     left_x, text_x, page_x = LEFT, 243, RIGHT

@@ -258,12 +258,20 @@ def plain_rule(space_before=4, space_after=10, thickness=0.8):
 DC_SIZE = 22
 
 
+def dropcap_split(text):
+    """Lettrine : « L'Amérique » -> lettrine « L' » (l'apostrophe reste avec la lettre, comme en typographie française)."""
+    m = re.match(r"^([A-Za-zÀ-ÖØ-öø-ÿ]['\u2019])(.*)$", text, re.S)
+    if m:
+        return m.group(1), m.group(2)
+    return text[0], text[1:]
+
+
 def simple_dropcap(text, style):
     """Lettrine simple du kit (initiale 22 pt en ligne). ReportLab cale la 1re ligne sur la
     taille de la lettrine : le bloc de texte descend de (22 - 12) = 10 pt dans sa boîte, ce qui
     mangeait l'espace sous le paragraphe. On le restitue ici (le kit d'origine l'ignorait)."""
-    first = text[0]
-    rest = fr(text[1:].lstrip())
+    first, tail = dropcap_split(text)
+    rest = fr(tail.lstrip())
     html_ = '<font size="%d" face="Serif-Bold">%s</font>%s' % (DC_SIZE, html.escape(first, quote=False), rest)
     dc_style = ParagraphStyle(style.name + "_dc", parent=style,
                               spaceAfter=style.spaceAfter + (DC_SIZE - style.fontSize))
