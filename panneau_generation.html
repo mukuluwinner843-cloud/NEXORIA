@@ -194,9 +194,19 @@
       </div>
     </div>
     <div class="field">
+      <label for="lang">Langue du document</label>
+      <select id="lang">
+        <option value="auto">Automatique (détectée dans le texte)</option>
+        <option value="fr">Français</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+    <div class="field">
       <label for="docword">Type de document</label>
       <select id="docword">
+        <option value="">Automatique (DEVOIR ou ASSIGNMENT)</option>
         <option>DEVOIR</option>
+        <option>ASSIGNMENT</option>
         <option>DEVOIR DE RECHERCHE</option>
         <option>EXPOSÉ</option>
         <option>RAPPORT</option>
@@ -356,8 +366,9 @@ Texte de conclusion."></textarea>
         theme: val("theme"),
         annee: val("annee"),
         date: val("date"),
-        doc_word: val("docword") || "DEVOIR"
+        doc_word: val("docword")
       },
+      lang: val("lang") || "auto",
       corps_texte: document.getElementById("corps").value,
       sommaire: val("modele") || "classique",
       police: val("police") || "defaut"
@@ -388,7 +399,7 @@ Texte de conclusion."></textarea>
       }
 
       var blob = await resp.blob();
-      var filename = (payload.meta.doc_word + "_" + payload.meta.eleve + "_" + pack.toUpperCase())
+      var filename = ((payload.meta.doc_word || "DOCUMENT") + "_" + payload.meta.eleve + "_" + pack.toUpperCase())
         .replace(/\s+/g, "_") + ".pdf";
       var url = URL.createObjectURL(blob);
       var a = document.createElement("a");

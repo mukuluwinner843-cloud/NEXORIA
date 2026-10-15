@@ -26,6 +26,7 @@ GRID = colors.HexColor("#B0B0B0")
 
 TABLE_ROW_RE = re.compile(r"^(.{1,70}?)\s*\|\s*(.+)$")
 TABLE_CAP_RE = re.compile(r"^Tableau\s+(\d+)\s*[\u2014\u2013\-]+\s*(.+)$", re.I)
+LIST_ITEM_RE = re.compile(r"^(\d{1,3}[.)]|[-\u2022*])\s+\S")
 SEPARATOR_RE = re.compile(r"^[\\\-\u2014\u2013\s|:]+$")  # v3.11 : ligne |---|---| d'un tableau Markdown
 
 
@@ -42,10 +43,23 @@ def paragraphs_from_markdown(raw):
                 if not SEPARATOR_RE.match(x):
                     paras.append(x)
             continue
-        line = " ".join(lines)
-        line = line.replace("\\.", ".").replace("\\|", "|")
-        if line and not SEPARATOR_RE.match(line):
-            paras.append(line)
+        # v3.12 : chaque élément de liste (« 1. », « 2) », « - », « • ») reste un paragraphe distinct
+        # au lieu d'être fondu dans le paragraphe précédent
+        buf = []
+        def flush():
+            if buf:
+                t = " ".join(buf).replace("\\.", ".").replace("\\|", "|")
+                if t and not SEPARATOR_RE.match(t):
+                    paras.append(t)
+                buf.clear()
+        for x in lines:
+            if LIST_ITEM_RE.match(x):
+                flush()
+                buf.append(x)
+                flush()
+            else:
+                buf.append(x)
+        flush()
     return paras
 
 
