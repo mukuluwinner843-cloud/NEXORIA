@@ -26,14 +26,23 @@ GRID = colors.HexColor("#B0B0B0")
 
 TABLE_ROW_RE = re.compile(r"^(.{1,70}?)\s*\|\s*(.+)$")
 TABLE_CAP_RE = re.compile(r"^Tableau\s+(\d+)\s*[\u2014\u2013\-]+\s*(.+)$", re.I)
-SEPARATOR_RE = re.compile(r"^[\\\-\u2014\u2013\s]+$")
+SEPARATOR_RE = re.compile(r"^[\\\-\u2014\u2013\s|:]+$")  # v3.11 : ligne |---|---| d'un tableau Markdown
 
 
 def paragraphs_from_markdown(raw):
     chunks = re.split(r"\n\s*\n", raw.strip())
     paras = []
     for c in chunks:
-        line = " ".join(x.strip() for x in c.split("\n") if x.strip())
+        lines = [x.strip() for x in c.split("\n") if x.strip()]
+        # v3.6 : les lignes d'un tableau (« a| b ») restent des lignes distinctes ; sinon elles
+        # fusionnaient en un seul paragraphe (tableau aplati en texte).
+        if len(lines) > 1 and sum(1 for x in lines if "|" in x) >= 2:
+            for x in lines:
+                x = x.replace("\\.", ".").replace("\\|", "|")
+                if not SEPARATOR_RE.match(x):
+                    paras.append(x)
+            continue
+        line = " ".join(lines)
         line = line.replace("\\.", ".").replace("\\|", "|")
         if line and not SEPARATOR_RE.match(line):
             paras.append(line)
