@@ -9,8 +9,6 @@ import os
 import re
 import html
 import json
-from nexoria_lang import t as tr, is_en, is_enum
-from nexoria_tables import LIST_ITEM_RE
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
@@ -81,13 +79,13 @@ def parse_source(path):
     return meta, title_block, body
 
 
-SECTION_WORDS = ("BIBLIOGRAPHIE", "RÉFÉRENCES", "ANNEXE", "BIBLIOGRAPHY", "REFERENCES", "APPENDIX")
+SECTION_WORDS = ("BIBLIOGRAPHIE", "RÉFÉRENCES", "ANNEXE")
 
 
 def is_h1(l):
     if re.match(r"^[IVXLCDM]+\.\s+\S", l) and l == l.upper():
         return True
-    if l in ("INTRODUCTION", "CONCLUSION", "INTRODUCTION"):
+    if l in ("INTRODUCTION", "CONCLUSION"):
         return True
     # « BIBLIOGRAPHIE » peut être précédé/suivi d'un qualificatif ("PETITE
     # BIBLIOGRAPHIE INDICATIVE", "RÉFÉRENCES BIBLIOGRAPHIQUES"...) : on cherche le
@@ -97,53 +95,15 @@ def is_h1(l):
 
 
 def section_kind(h):
-    if any(w in h for w in ("BIBLIOGRAPHIE", "RÉFÉRENCES", "BIBLIOGRAPHY", "REFERENCES")):
+    if "BIBLIOGRAPHIE" in h or "RÉFÉRENCES" in h:
         return "biblio"
-    if "ANNEXE" in h or "APPENDIX" in h:
+    if "ANNEXE" in h:
         return "annexe"
     return "body"
 
 
 def is_formula(l):
     return " = " in l and len(l) <= 45 and not l.endswith(".")
-
-
-
-ELIDED_CAPS = re.compile(r"^[LDJNSMTCQ]['’][A-ZÀ-ÝÀ-Ý]+$")
-
-
-def _is_caps_token(t):
-    if t == "À":
-        return True
-    letters = re.sub(r"[^A-Za-zÀ-ÿ]", "", t)
-    if not letters:
-        return False
-    if ELIDED_CAPS.match(t):
-        return True
-    return t == t.upper() and len(letters) >= 2
-
-
-def split_heading_tail(l):
-    """v3.10 : « ADMINISTRATIF L a colonisation… » juste après un titre : la suite en capitales
-    appartient au titre ; le reste est le paragraphe. Renvoie (suite_en_capitales, reste) ou None."""
-    toks = l.split(" ")
-    n = 0
-    while n < len(toks) and _is_caps_token(toks[n]):
-        n += 1
-    if n == 0 or n >= len(toks):
-        return None
-    if n == 1 and len(re.sub(r"[^A-Za-zÀ-ÿ]", "", toks[0])) < 4:
-        return None
-    if toks[n] == "":
-        return None
-    return " ".join(toks[:n]), " ".join(toks[n:])
-
-
-def typo_fr(l):
-    """v3.10 : élision française — « L 'un » -> « L'un » (espace parasite venu du source)."""
-    if is_en():
-        return l
-    return re.sub(r"\b([LDJNSMTCQlcdjnsmtcqu]|qu|Qu|jusqu|lorsqu|puisqu) +(['’])", r"\1\2", l)
 
 
 def classify(lines):
@@ -157,17 +117,6 @@ def classify(lines):
                        "newpage": False, "nodc": True, "data": l})
             continue
         prev = out[-1] if out else None
-        l = typo_fr(l)
-        # v3.10 : suite de titre en capitales suivie d'un paragraphe (cas « ADMINISTRATIF L a… »)
-        if (prev and prev["kind"] == "h1" and prev["text"] not in ("INTRODUCTION", "CONCLUSION")
-                and not is_h1(l)):
-            sp = split_heading_tail(l)
-            if sp:
-                prev["text"] = prev["text"] + " " + sp[0]
-                l = sp[1]
-                prev = None
-                if not l.strip():
-                    continue
         # v3.6 : un titre coupé sur deux lignes dans le source (« I. L'HÉRITAGE TERRITORIAL ET » puis
         # « ADMINISTRATIF ») : la suite en capitales est recollée au titre au lieu de devenir un
         # paragraphe commençant par des majuscules isolées.
@@ -231,8 +180,6 @@ def balance(text, font, size, maxw):
 
 
 def nbsp_rules(t):
-    if is_en():
-        return t
     t = re.sub(r" ([?!:;])", NBSP + r"\1", t)          # espace insécable avant ? ! : ;
     t = re.sub(r"(\d) (kg/m³|Pa\b)", r"\1" + NBSP + r"\2", t)
     return t
@@ -395,7 +342,7 @@ class NumberedCanvas(canvas_module.Canvas):
             self.setFont("Helvetica", 8)
             self.setFillColor(GREY)
             self.drawRightString(W - MARGIN_SIDE, MARGIN_TB - 30,
-                                 tr("page_of") % (self._pageNumber + CFG["cover_pages"], total + CFG["cover_pages"]))
+                                 "Page %d sur %d" % (self._pageNumber + CFG["cover_pages"], total + CFG["cover_pages"]))
             canvas_module.Canvas.showPage(self)
         canvas_module.Canvas.save(self)
 
@@ -445,17 +392,12 @@ def build_body(blocks, out_pdf, running_title):
             story.append(plain_rule())
             st["fresh"], st["dc"] = True, b.get("sect", "body") == "body"
         elif kind == "p":
-            dc_here = st["dc"] and not starts_with_caps(text) and not is_enum()
+            dc_here = st["dc"] and not starts_with_caps(text)
             st["dc"] = False
             if dc_here:
                 story.append(simple_dropcap(text, body_style(kwn, False)))
             else:
-                if LIST_ITEM_RE.match(text):
-                    lst = ParagraphStyle(body_style(kwn, False).name + "_li", parent=body_style(kwn, False),
-                                         firstLineIndent=-12, leftIndent=18, spaceAfter=4)
-                    story.append(Paragraph(fr(text), lst))
-                else:
-                    story.append(Paragraph(fr(text), body_style(kwn, not st["fresh"])))
+                story.append(Paragraph(fr(text), body_style(kwn, not st["fresh"])))
             st["fresh"] = False
         elif kind == "formula":
             story.append(Paragraph(formula_markup(text), STYLES["formula"]))
@@ -622,12 +564,12 @@ def render_sommaire(entries, out_pdf, style):
         # Titre
         c.setFillColor(style["title"])
         c.setFont("Helvetica-Bold", 28)
-        c.drawString(left_x, H - 90, tr("toc"))
+        c.drawString(left_x, H - 90, "SOMMAIRE")
         if pi > 0:
             c.setFont("Helvetica", 11)
             c.setFillColor(GREY)
-            c.drawString(left_x + stringWidth(tr("toc"), "Helvetica-Bold", 28) + 10,
-                         H - 90, tr("toc_cont"))
+            c.drawString(left_x + stringWidth("SOMMAIRE", "Helvetica-Bold", 28) + 10,
+                         H - 90, "(suite)")
         c.setStrokeColor(style["title_rule"])
         c.setLineWidth(style["title_rule_w"])
         c.line(left_x, H - 100, page_x, H - 100)
@@ -745,7 +687,7 @@ def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text,
     c.rect(W / 2 - box_w / 2, Y(box_top) - box_h, box_w, box_h)
     c.setFillColor(GREY)
     c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(W / 2, Y(box_top + 22), spaced(tr("school_year")))
+    c.drawCentredString(W / 2, Y(box_top + 22), spaced("ANNÉE SCOLAIRE"))
     c.setFillColor(BLACK)
     c.setFont("Times-Bold", 17)
     c.drawCentredString(W / 2, Y(box_top + 45), year_text)
@@ -771,7 +713,7 @@ def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text,
     c.line(W / 2 - 130, Y(708.5), W / 2 + 130, Y(708.5))
     c.setFillColor(BLACK)
     c.setFont("Times-Italic", 11)
-    c.drawCentredString(W / 2, Y(735), tr("tagline"))
+    c.drawCentredString(W / 2, Y(735), "\u00ab L\u2019excellence ne s\u2019improvise pas. Elle s\u2019organise. \u00bb")
 
     # logo NEXORIA : remonté pour rester à l'intérieur du cadre (il le chevauchait)
     nim = Image.open(logo_path)

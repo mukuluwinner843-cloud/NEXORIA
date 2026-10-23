@@ -22,7 +22,6 @@ sous-parties affichent donc les parties seules tant qu'aucun niveau 2 n'est reco
 """
 import os
 import re
-from nexoria_lang import t as tr
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -196,7 +195,7 @@ def _split(g, modele, pol):
         if first:
             parts.append({**g, "items": chunk})
         else:
-            parts.append({**g, "chapter": g["chapter"] + " " + tr("toc_cont"), "page": chunk[0][1], "items": chunk})
+            parts.append({**g, "chapter": g["chapter"] + " (suite)", "page": chunk[0][1], "items": chunk})
         first = False
     return parts
 
@@ -262,13 +261,13 @@ def _titre(c, pi, modele, P, pol):
     t.setFont(font, 26)
     t.setCharSpace(5 if spaced else 0)
     t.setFillColor(P["ink"])
-    t.textOut(tr("toc"))
+    t.textOut("SOMMAIRE")
     t.setCharSpace(0)          # l'interlettrage ne doit pas rester actif pour le reste de la page
     c.drawText(t)
     if pi > 0:
         c.setFont(pol["sans"], 11)
         c.setFillColor(colors.HexColor("#666666"))
-        c.drawString(LEFT + stringWidth(tr("toc"), font, 26) + 40, H - 90, tr("toc_cont"))
+        c.drawString(LEFT + stringWidth("SOMMAIRE", font, 26) + 40, H - 90, "(suite)")
     c.setStrokeColor(P["accent"])
     c.setLineWidth(0.9)
     c.line(LEFT, H - 100, RIGHT, H - 100)
@@ -404,11 +403,11 @@ def _render_classique(entries, out_pdf, pack, pol, cover_pages):
     for pi, pg in enumerate(pages):
         c.setFillColor(style["title"])
         c.setFont(pol["sans_b"], 28)
-        c.drawString(left_x, H - 90, tr("toc"))
+        c.drawString(left_x, H - 90, "SOMMAIRE")
         if pi > 0:
             c.setFont(pol["sans"], 11)
             c.setFillColor(colors.HexColor("#666666"))
-            c.drawString(left_x + stringWidth(tr("toc"), pol["sans_b"], 28) + 10, H - 90, tr("toc_cont"))
+            c.drawString(left_x + stringWidth("SOMMAIRE", pol["sans_b"], 28) + 10, H - 90, "(suite)")
         c.setStrokeColor(style["title_rule"])
         c.setLineWidth(style["title_rule_w"])
         c.line(left_x, H - 100, page_x, H - 100)

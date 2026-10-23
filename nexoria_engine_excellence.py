@@ -10,8 +10,6 @@ mais avec le langage graphique Excellence du kit :
 Réutilise l'analyse du texte et la typographie française du moteur Standard.
 """
 import re
-from nexoria_lang import t as tr, is_enum
-from nexoria_tables import LIST_ITEM_RE
 import html
 import sys
 from nexoria_engine_standard import *          # parse_source, classify, fr, balance, STYLES, TocDoc, ...
@@ -64,7 +62,7 @@ class GoldDropCap(Flowable):
         self.font = STYLES["body"].fontName
         self.cap_size = leading * cap_lines * 0.86
         self.cap_w = stringWidth(self.first, "Serif-Bold", self.cap_size)
-        self.indent = self.cap_w + 1.5
+        self.indent = self.cap_w + 3
         self.spaceAfter = CFG.get("gap", 13)
 
     def wrap(self, aw, ah):
@@ -199,19 +197,9 @@ def build_body_excellence(blocks, out_pdf, running_title):
         laisse un vide disproportionné sous la lettre."""
         if starts_with_caps(text):
             return Paragraph(fr(text), body_style(kwn, False)), 46
-        if LIST_ITEM_RE.match(text):
-            lst = ParagraphStyle(body_style(kwn, False).name + "_li", parent=body_style(kwn, False),
-                                 firstLineIndent=-12, leftIndent=18, spaceAfter=4)
-            return Paragraph(fr(text), lst), 24
-        if is_enum():
-            return Paragraph(fr(text), body_style(kwn, False)), 24
         if cp1252_ok(text) and "³" not in text and "²" not in text:
             dc = GoldDropCap(text, cap_lines=3)
             dc.wrap(fw, 10000)
-            # v3.10 : paragraphe d'une seule ligne : pas de lettrine (une lettre seule sur une ligne
-            # paraît collée au texte) — texte courant
-            if len(dc.lines) < 2:
-                return Paragraph(fr(text), body_style(kwn, False)), 24
             if len(dc.lines) == 2:
                 dc = GoldDropCap(text, cap_lines=2)
                 dc.wrap(fw, 10000)
@@ -377,7 +365,7 @@ def render_cover_school_excellence(out_pdf, school_line1, school_line2, year_tex
     c.rect(W / 2 - box_w / 2, Y(box_top) - box_h, box_w, box_h)
     c.setFillColor(GREY)
     c.setFont("Helvetica-Bold", 9)
-    c.drawCentredString(W / 2, Y(box_top + 22), spaced(tr("school_year")))
+    c.drawCentredString(W / 2, Y(box_top + 22), spaced("ANNÉE SCOLAIRE"))
     c.setFillColor(NAVY)
     c.setFont("Times-Bold", 17)
     c.drawCentredString(W / 2, Y(box_top + 45), year_text)
@@ -414,7 +402,7 @@ def render_cover_school_excellence(out_pdf, school_line1, school_line2, year_tex
     c.setFillColor(NAVY)
     c.circle(W / 2, dy, 5, fill=1, stroke=0)
     c.setFont("Times-Italic", 11)
-    c.drawCentredString(W / 2, Y(735), tr("tagline"))
+    c.drawCentredString(W / 2, Y(735), "\u00ab L\u2019excellence ne s\u2019improvise pas. Elle s\u2019organise. \u00bb")
 
     nim = Image.open(logo_path)
     nw, nh = nim.size

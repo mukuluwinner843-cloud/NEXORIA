@@ -14,7 +14,6 @@ NEXORIA — extension « tableaux et schémas »
 """
 import html
 import re
-from nexoria_lang import is_enum
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import Table, TableStyle, Paragraph, Spacer, KeepTogether, Flowable
@@ -27,8 +26,7 @@ GRID = colors.HexColor("#B0B0B0")
 
 TABLE_ROW_RE = re.compile(r"^(.{1,70}?)\s*\|\s*(.+)$")
 TABLE_CAP_RE = re.compile(r"^Tableau\s+(\d+)\s*[\u2014\u2013\-]+\s*(.+)$", re.I)
-LIST_ITEM_RE = re.compile(r"^(\d{1,3}[.)]|[-\u2022*])\s+\S")
-SEPARATOR_RE = re.compile(r"^[\\\-\u2014\u2013\s|:]+$")  # v3.11 : ligne |---|---| d'un tableau Markdown
+SEPARATOR_RE = re.compile(r"^[\\\-\u2014\u2013\s]+$")
 
 
 def paragraphs_from_markdown(raw):
@@ -44,23 +42,10 @@ def paragraphs_from_markdown(raw):
                 if not SEPARATOR_RE.match(x):
                     paras.append(x)
             continue
-        # v3.12 : chaque élément de liste (« 1. », « 2) », « - », « • ») reste un paragraphe distinct
-        # au lieu d'être fondu dans le paragraphe précédent
-        buf = []
-        def flush():
-            if buf:
-                t = " ".join(buf).replace("\\.", ".").replace("\\|", "|")
-                if t and not SEPARATOR_RE.match(t):
-                    paras.append(t)
-                buf.clear()
-        for x in lines:
-            if LIST_ITEM_RE.match(x):
-                flush()
-                buf.append(x)
-                flush()
-            else:
-                buf.append(x)
-        flush()
+        line = " ".join(lines)
+        line = line.replace("\\.", ".").replace("\\|", "|")
+        if line and not SEPARATOR_RE.match(line):
+            paras.append(line)
     return paras
 
 
@@ -143,23 +128,17 @@ def _wrap(text, font, size, max_w):
 
 def table_flowables(caption, rows, fw, palette=None):
     pal = palette or {"text": BLACK, "head_bg": HEADER_BG, "grid": GRID, "grid_w": 0.6, "rule": None}
-    # v3.15 : mode compact (énumération) : tableaux plus serrés, colonne « No. » étroite
-    compact = is_enum()
-    fs, ld, pad = (8.6, 10.6, 2.4) if compact else (10, 13.5, 5)
     cap_style = ParagraphStyle("tbl_cap", fontName="Helvetica-Bold", fontSize=10.5,
                                leading=14, textColor=pal["text"], spaceAfter=6)
-    head_style = ParagraphStyle("tbl_head", fontName="Helvetica-Bold", fontSize=fs,
-                                leading=ld, textColor=pal["text"])
-    cell_style = ParagraphStyle("tbl_cell", fontName="Helvetica", fontSize=fs,
-                                leading=ld, textColor=pal["text"])
+    head_style = ParagraphStyle("tbl_head", fontName="Helvetica-Bold", fontSize=10,
+                                leading=13, textColor=pal["text"])
+    cell_style = ParagraphStyle("tbl_cell", fontName="Helvetica", fontSize=10,
+                                leading=13.5, textColor=pal["text"])
     ncols = max(len(r) for r in rows)
     # 2 colonnes : 1re colonne étroite (libellé) ; plus de colonnes : largeurs égales
     if ncols == 2:
         col0 = max(1.15 * 72, fw * 0.30)
         widths = [col0, fw - col0]
-    elif compact and rows[0] and rows[0][0].strip().lower() in ("no.", "n°", "n", "no"):
-        rest = (fw - 0.09 * fw) / (ncols - 1)
-        widths = [0.09 * fw] + [rest] * (ncols - 1)
     else:
         widths = [fw / ncols] * ncols
     rows = [r + [""] * (ncols - len(r)) for r in rows]
@@ -172,8 +151,8 @@ def table_flowables(caption, rows, fw, palette=None):
         ("GRID", (0, 0), (-1, -1), pal["grid_w"], pal["grid"]),
         ("BACKGROUND", (0, 0), (-1, 0), pal["head_bg"]),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), pad), ("BOTTOMPADDING", (0, 0), (-1, -1), pad),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6 if compact else 7), ("RIGHTPADDING", (0, 0), (-1, -1), 6 if compact else 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7), ("RIGHTPADDING", (0, 0), (-1, -1), 7),
     ]
     if pal.get("rule"):
         style += [("LINEABOVE", (0, 0), (-1, 0), 1.1, pal["rule"]),
