@@ -29,10 +29,19 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 _FD = "/usr/share/fonts/truetype/dejavu/"
-for _n, _f in [("Sans", "DejaVuSans.ttf"), ("SansB", "DejaVuSans-Bold.ttf"), ("SerifB", "DejaVuSerif-Bold.ttf"),
-               ("SerifI", "DejaVuSerif-Italic.ttf")]:
-    if _n not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(TTFont(_n, _FD + _f))
+_RL = os.path.join(os.path.dirname(__import__("reportlab").__file__), "fonts") + os.sep
+# Chaque police : DejaVu si présent (hébergeur), sinon Vera livrée avec ReportLab (toujours disponible)
+_FONTS = [("Sans", ["DejaVuSans.ttf"], ["Vera.ttf"]),
+          ("SansB", ["DejaVuSans-Bold.ttf"], ["VeraBd.ttf"]),
+          ("SerifB", ["DejaVuSerif-Bold.ttf"], ["VeraBd.ttf"]),
+          ("SerifI", ["DejaVuSerif-Italic.ttf"], ["VeraIt.ttf"])]
+for _n, _dv, _vera in _FONTS:
+    if _n in pdfmetrics.getRegisteredFontNames():
+        continue
+    for _path in [_FD + _dv[0], _RL + _vera[0]]:
+        if os.path.exists(_path):
+            pdfmetrics.registerFont(TTFont(_n, _path))
+            break
 
 VERIF_BASE = os.environ.get("NEXORIA_VERIF_BASE", "https://mukuluwinner843-cloud.github.io/nexoria-verif/")
 REGISTRE = os.environ.get("NEXORIA_REGISTRE", "")  # chemin du verifications.json (serveur)
