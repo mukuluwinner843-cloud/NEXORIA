@@ -31,11 +31,13 @@ KNOWN_CRESTS = {
     "francisco palau": "crest_grey.png",
     "gianelli": "crest_gianelli.png",
     "les oscars": "crest_oscars_grey.png",
+    "mont amba": "crest_monta_grey.png",
 }
 KNOWN_CRESTS_EXCELLENCE = {
     "francisco palau": "crest_transparent.png",
     "gianelli": "crest_gianelli.png",
     "les oscars": "crest_oscars.png",
+    "mont amba": "crest_monta.png",
 }
 
 
