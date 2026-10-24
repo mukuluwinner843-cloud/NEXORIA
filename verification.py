@@ -44,7 +44,9 @@ for _n, _dv, _vera in _FONTS:
             break
 
 VERIF_BASE = os.environ.get("NEXORIA_VERIF_BASE", "https://mukuluwinner843-cloud.github.io/nexoria-verif/")
-REGISTRE = os.environ.get("NEXORIA_REGISTRE", "")  # chemin du verifications.json (serveur)
+# Registre : NEXORIA_REGISTRE si défini (ex. volume Railway : /data/verifications.json),
+# sinon un fichier dans le dossier du service (effacé à chaque redéploiement sans volume).
+REGISTRE = os.environ.get("NEXORIA_REGISTRE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "verifications.json")
 OR = HexColor("#B89252"); CHAR = HexColor("#1C1C1C"); GRIS = HexColor("#666666"); PARCH = HexColor("#F8F6F0")
 W, H = A4
 
@@ -127,6 +129,7 @@ def register(code, pack, meta, final_bytes, registre=None):
     path = registre or REGISTRE
     if not path:
         return None
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     entry = {"code": code, "pack": "Excellence" if pack == "excellence" else "Standard",
              "eleve": meta.get("eleve", ""), "classe": meta.get("classe", ""),
              "matiere": meta.get("matiere", ""), "encadreur": meta.get("titulaire", ""),

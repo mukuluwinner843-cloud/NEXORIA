@@ -271,6 +271,17 @@ Texte de conclusion."></textarea>
   <button id="go">Générer le PDF</button>
   <div id="status"></div>
 
+  <section id="registre" style="margin-top:18px;border-top:1px solid #DDD;padding-top:14px;">
+    <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">Registre et archives</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" id="dl-public">Registre public (.json)</button>
+      <button type="button" id="dl-complet">Sauvegarde complète (.json)</button>
+      <button type="button" id="dl-rapport">Rapport clients (.pdf)</button>
+    </div>
+    <div id="reg-status" style="margin-top:8px;font-size:13px;"></div>
+    <div style="font-size:12px;color:#666;margin-top:6px;">La sauvegarde complète et le rapport contiennent des noms : ne les publiez pas.</div>
+  </section>
+
   <section id="verif" hidden style="margin-top:18px;border:1px solid #B89252;border-radius:8px;padding:16px;background:#F8F6F0;">
     <div style="font-family:Georgia,serif;font-size:16px;margin-bottom:10px;">Vérification du document</div>
     <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
@@ -421,6 +432,36 @@ Texte de conclusion."></textarea>
     }
     btn.disabled = false;
   }
+
+  function serviceBase() {
+    return val("apiurl").replace(/\/generate\/?$/, "");
+  }
+
+  async function telecharger(chemin, nomFichier) {
+    var st = document.getElementById("reg-status");
+    st.textContent = "Préparation en cours...";
+    try {
+      var resp = await fetch(serviceBase() + chemin, { headers: { "X-API-Key": val("apikey") } });
+      if (!resp.ok) {
+        var t = await resp.text(); var m = t;
+        try { m = JSON.parse(t).detail || t; } catch (e) {}
+        st.textContent = "Erreur " + resp.status + " : " + m;
+        return;
+      }
+      var blob = await resp.blob();
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = nomFichier;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      st.textContent = "Fichier téléchargé \u2713";
+    } catch (e) {
+      st.textContent = "Impossible de joindre le service.";
+    }
+  }
+  document.getElementById("dl-public").onclick = function () { telecharger("/registre/public", "verifications.json"); };
+  document.getElementById("dl-complet").onclick = function () { telecharger("/registre/complet", "registre_complet_nexoria.json"); };
+  document.getElementById("dl-rapport").onclick = function () { telecharger("/rapport", "rapport_nexoria.pdf"); };
 
   function showVerif(code, vurl) {
     var box = document.getElementById("verif");

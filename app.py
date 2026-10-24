@@ -21,8 +21,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+import json
+
 import core
 import extract
+import rapport
 import verification
 import nexoria_sommaires as som
 
@@ -106,6 +109,45 @@ def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(None)):
                     headers={"Content-Disposition": 'attachment; filename="%s"' % filename,
                              "X-Verification-Code": code,
                              "X-Verification-Url": verification.VERIF_BASE + "?code=" + code})
+
+
+def _registre():
+    path = verification.REGISTRE
+    if not path or not os.path.exists(path):
+        return {"documents": []}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+_CHAMPS_PUBLICS = ["code", "pack", "document", "date", "statut", "empreinte", "mis_a_jour"]
+
+
+@app.get("/registre/public")
+def registre_public(x_api_key: Optional[str] = Header(None)):
+    """Version publiable (sans nom d'élève) : à téléverser sur le dépôt nexoria-verif."""
+    check_key(x_api_key)
+    docs = [{c: d.get(c, "") for c in _CHAMPS_PUBLICS} for d in _registre().get("documents", [])]
+    body = json.dumps({"documents": docs}, ensure_ascii=False, indent=2)
+    return Response(content=body, media_type="application/json",
+                    headers={"Content-Disposition": 'attachment; filename="verifications.json"'})
+
+
+@app.get("/registre/complet")
+def registre_complet(x_api_key: Optional[str] = Header(None)):
+    """Sauvegarde complète (avec noms, classes, écoles) : archive privée, ne pas publier."""
+    check_key(x_api_key)
+    body = json.dumps(_registre(), ensure_ascii=False, indent=2)
+    return Response(content=body, media_type="application/json",
+                    headers={"Content-Disposition": 'attachment; filename="registre_complet_nexoria.json"'})
+
+
+@app.get("/rapport")
+def rapport_pdf(x_api_key: Optional[str] = Header(None)):
+    """Rapport PDF de tous les documents générés (archive et remise aux clients)."""
+    check_key(x_api_key)
+    pdf = rapport.build_report(_registre())
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="rapport_nexoria.pdf"'})
 
 
 @app.post("/extract")
