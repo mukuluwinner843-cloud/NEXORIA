@@ -234,7 +234,7 @@ def formula_markup(text):
 # --------------------------------------------------------------------------------------
 def _body_style(name, indent=False, kwn=False, **kw):
     base = dict(fontName="Helvetica", fontSize=12, leading=18, textColor=BLACK,
-                alignment=TA_JUSTIFY, spaceAfter=13, allowOrphans=0, allowWidows=0,
+                alignment=TA_LEFT, spaceAfter=13, allowOrphans=0, allowWidows=0,
                 keepWithNext=1 if kwn else 0)
     if indent:
         base["firstLineIndent"] = 16
@@ -257,10 +257,10 @@ STYLES = {
                             spaceBefore=4, spaceAfter=13),
     "bullet": ParagraphStyle("bullet", fontName="Helvetica", fontSize=12, leading=18,
                              textColor=BLACK, leftIndent=16, firstLineIndent=-16,
-                             spaceAfter=6, alignment=TA_JUSTIFY, allowOrphans=0, allowWidows=0),
+                             spaceAfter=6, alignment=TA_LEFT, allowOrphans=0, allowWidows=0),
     "bullet_last": ParagraphStyle("bullet_last", fontName="Helvetica", fontSize=12, leading=18,
                                   textColor=BLACK, leftIndent=16, firstLineIndent=-16,
-                                  spaceAfter=13, alignment=TA_JUSTIFY, allowOrphans=0, allowWidows=0),
+                                  spaceAfter=13, alignment=TA_LEFT, allowOrphans=0, allowWidows=0),
     "biblio": ParagraphStyle("biblio", fontName="Helvetica", fontSize=10.5, leading=15,
                              textColor=BLACK, alignment=TA_LEFT, leftIndent=18,
                              firstLineIndent=-18, spaceAfter=9, allowOrphans=0, allowWidows=0),

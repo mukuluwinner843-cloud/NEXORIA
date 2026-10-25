@@ -3,206 +3,187 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <title>NEXORIA — Génération</title>
 <style>
   :root {
-    --parch: #F8F6F0;
-    --gold: #B89252;
-    --navy: #16233F;
-    --charbon: #1C1C1C;
-    --grey: #666666;
-    --line: #D9D2C3;
-    --ok: #2E7D32;
+    --bg: #F6F5F1;
+    --surface: #FFFFFF;
+    --surface-2: #FAF9F6;
+    --text: #1B1F2A;
+    --muted: #6B7080;
+    --line: #E4E1D8;
+    --line-strong: #CFCABB;
+    --accent: #1F2D4D;
+    --accent-text: #FFFFFF;
+    --gold: #B08A4A;
+    --ok: #2F7A4A;
+    --warn: #9A6A12;
     --err: #B3261E;
-    box-sizing: border-box;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(20, 24, 36, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12151D;
+      --surface: #1B1F2A;
+      --surface-2: #161A23;
+      --text: #ECEAE4;
+      --muted: #9AA0AE;
+      --line: #2C3240;
+      --line-strong: #3B4253;
+      --accent: #D9C49A;
+      --accent-text: #12151D;
+      --gold: #D9B672;
+      --ok: #7CC295;
+      --warn: #E8C27A;
+      --err: #F08A82;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12151D; --surface: #1B1F2A; --surface-2: #161A23; --text: #ECEAE4; --muted: #9AA0AE;
+    --line: #2C3240; --line-strong: #3B4253; --accent: #D9C49A; --accent-text: #12151D;
+    --gold: #D9B672; --ok: #7CC295; --warn: #E8C27A; --err: #F08A82; --shadow: none;
   }
   * { box-sizing: border-box; }
-  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  html, body { margin: 0; padding: 0; }
   body {
-    margin: 0;
-    background: var(--parch);
-    color: var(--charbon);
-    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
   header {
-    background: var(--navy);
-    color: #fff;
-    padding: 22px 20px 18px;
-    text-align: center;
+    position: sticky; top: 0; z-index: 5;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px;
   }
-  header .mark {
-    font-family: Georgia, "Times New Roman", serif;
-    font-weight: 700;
-    font-size: 26px;
-    letter-spacing: 2px;
+  .brand { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; max-width: 720px; margin: 0 auto; }
+  .brand .name { font: 600 17px Georgia, "Times New Roman", serif; letter-spacing: 0.14em; }
+  .brand .sub { color: var(--muted); font-size: 12.5px; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+  .card > h2 {
+    margin: 0 0 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
   }
-  header .tag {
-    color: var(--gold);
-    font-style: italic;
-    font-size: 12.5px;
-    margin-top: 4px;
+  .card > h2 .num { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--line-strong); font-size: 11px; color: var(--text); }
+  .grid-2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 560px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+  .field { display: grid; gap: 5px; min-width: 0; }
+  label, .label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .opt { font-weight: 400; color: var(--muted); }
+  input[type=text], input[type=password], input[type=url], input[type=file], select, textarea {
+    width: 100%; font: inherit; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--line-strong); border-radius: 9px; padding: 10px 12px; min-height: 44px;
+    -webkit-appearance: none; appearance: none;
   }
-  main { max-width: 640px; margin: 0 auto; padding: 18px 16px 60px; }
-  section {
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 16px 16px 6px;
-    margin-bottom: 16px;
+  select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
+  textarea { min-height: 240px; line-height: 1.5; resize: vertical; font-size: 14.5px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 22%, transparent); }
+  .hint { font-size: 12px; color: var(--muted); }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label {
+    display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: var(--surface-2); font-weight: 600; font-size: 14px; margin: 0;
   }
-  section h2 {
-    font-size: 11px;
-    letter-spacing: 1.5px;
-    text-transform: uppercase;
-    color: var(--gold);
-    margin: 0 0 14px;
-    font-weight: 700;
+  .seg input:checked + label { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--text); background: var(--surface); }
+  .seg input:focus-visible + label { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 35%, transparent); }
+  .seg-wrap { position: relative; }
+  .checks { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13.5px; }
+  .checks label { font-weight: 500; display: inline-flex; gap: 6px; align-items: center; min-height: 32px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--muted); background: var(--surface-2); }
+  .chip.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+  .notice { margin-top: 10px; padding: 10px 12px; border-radius: 9px; font-size: 13px; background: var(--surface-2); border: 1px solid var(--line); }
+  .notice.warn { border-color: color-mix(in srgb, var(--warn) 45%, transparent); color: var(--warn); }
+  .notice.err { border-color: color-mix(in srgb, var(--err) 45%, transparent); color: var(--err); }
+  .notice ul { margin: 4px 0 0; padding-left: 18px; }
+  .btn {
+    appearance: none; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text);
+    font: inherit; font-weight: 600; font-size: 14px; min-height: 44px; padding: 0 16px; border-radius: 10px; cursor: pointer;
   }
-  label {
-    display: block;
-    font-size: 12.5px;
-    color: var(--grey);
-    margin-bottom: 4px;
-    font-weight: 600;
+  .btn:hover { border-color: var(--muted); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .btn.small { min-height: 34px; font-size: 13px; padding: 0 12px; }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn-row .btn { flex: 1 1 auto; }
+  .actionbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
   }
-  .field { margin-bottom: 14px; }
-  input[type=text], input[type=password], input[type=url], select, textarea {
-    width: 100%;
-    border: 1px solid #C9C2B2;
-    border-radius: 7px;
-    padding: 10px 11px;
-    font-size: 15px;
-    font-family: inherit;
-    background: #FFFEFC;
-    color: var(--charbon);
-  }
-  input:focus, select:focus, textarea:focus {
-    outline: none;
-    border-color: var(--gold);
-    box-shadow: 0 0 0 3px rgba(184,146,82,0.18);
-  }
-  textarea { min-height: 220px; line-height: 1.45; resize: vertical; }
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .pack-choice { display: flex; gap: 10px; margin-bottom: 14px; }
-  .pack-choice label {
-    flex: 1; display: flex; align-items: center; justify-content: center;
-    border: 1.5px solid #C9C2B2; border-radius: 8px; padding: 10px 6px;
-    font-size: 13.5px; color: var(--charbon); cursor: pointer; margin: 0;
-    font-weight: 700;
-  }
-  .pack-choice input { display: none; }
-  .pack-choice input:checked + span { color: var(--navy); }
-  .pack-choice label.active { border-color: var(--gold); background: #FBF4E7; }
-  .hint { font-size: 11.5px; color: var(--grey); margin-top: 4px; line-height: 1.4; }
-  button#go {
-    width: 100%;
-    background: var(--navy);
-    color: #fff;
-    border: none;
-    border-radius: 9px;
-    padding: 15px;
-    font-size: 16px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    margin-top: 4px;
-    margin-bottom: 18px;
-  }
-  button#go:active { opacity: 0.85; }
-  button#go:disabled { opacity: 0.55; }
-  #status {
-    text-align: center;
-    font-size: 13.5px;
-    min-height: 18px;
-    margin-bottom: 14px;
-    padding: 0 8px;
-  }
-  #status.ok { color: var(--ok); font-weight: 600; }
-  #status.err { color: var(--err); font-weight: 600; }
-  #status.busy { color: var(--grey); }
-  details { margin-bottom: 16px; }
-  summary { font-size: 12.5px; color: var(--grey); cursor: pointer; }
-  .foot { text-align: center; font-size: 11px; color: var(--grey); font-style: italic; margin-top: 10px; }
-  #analyse-result { font-size: 13px; line-height: 1.5; margin-top: 10px; }
-  #analyse-result div { margin-bottom: 4px; }
-  #analyse-result.ok { color: var(--charbon); }
-  #analyse-result.err { color: var(--err); font-weight: 600; }
-  #analyse-result.busy { color: var(--grey); }
-  input[type=file] { width: 100%; font-size: 14px; padding: 8px 0; }
-  button.secondary {
-    width: 100%; background: #fff; color: var(--navy);
-    border: 1.5px solid var(--navy); border-radius: 9px; padding: 12px;
-    font-size: 15px; font-weight: 700; margin-top: 8px;
-  }
-  button.secondary:disabled { opacity: 0.55; }
+  .actionbar-inner { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+  .status { font-size: 13px; color: var(--muted); min-height: 18px; }
+  .status.ok { color: var(--ok); font-weight: 600; }
+  .status.err { color: var(--err); font-weight: 600; }
+  .status.busy { color: var(--muted); }
+  .btn.primary.big { min-height: 48px; padding: 0 22px; }
+  .queue { display: grid; gap: 8px; }
+  .job { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; background: var(--surface-2); }
+  .job-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .job-title { font-weight: 600; font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+  .job-state { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .job-state.ok { color: var(--ok); }
+  .job-state.err { color: var(--err); }
+  .job-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .empty { font-size: 13px; color: var(--muted); }
+  details { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); box-shadow: var(--shadow); }
+  details > summary { cursor: pointer; list-style: none; padding: 14px 16px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::after { content: "+"; color: var(--muted); font-size: 18px; line-height: 1; }
+  details[open] > summary::after { content: "−"; }
+  details > .inner { padding: 0 16px 16px; display: grid; gap: 12px; }
+  .verif { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+  .verif .qr { background: #fff; padding: 6px; border-radius: 8px; border: 1px solid var(--line); line-height: 0; }
+  .verif .qr img { width: 112px; height: 112px; }
+  .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
+  .link { color: var(--accent); font-size: 13.5px; }
+  [hidden] { display: none !important; }
+  .foot { text-align: center; font-size: 11.5px; color: var(--muted); padding: 4px 0 0; }
+  @media (max-width: 380px) { .verif { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
+
 <header>
-  <div class="mark">NEXORIA</div>
-  <div class="tag">Panneau de génération — Pack Standard / Excellence</div>
+  <div class="brand">
+    <div class="name">NEXORIA</div>
+    <div class="sub" id="service-line">Génération</div>
+  </div>
 </header>
+
 <main>
 
-  <section>
-    <h2>Pack</h2>
-    <div class="pack-choice" id="packChoice">
-      <label id="lblStd"><input type="radio" name="pack" value="standard" checked><span>Standard</span></label>
-      <label id="lblExc"><input type="radio" name="pack" value="excellence"><span>Excellence</span></label>
-    </div>
-
-    <h2>Informations de couverture</h2>
-    <div class="field">
-      <label for="etablissement">Établissement</label>
-      <input type="text" id="etablissement" value="Complexe Scolaire Francisco Palau">
-      <div class="hint">Le blason s'affiche automatiquement si l'établissement est reconnu (ex. Francisco Palau).</div>
-    </div>
-    <div class="row2">
+  <section class="card" aria-labelledby="h-pack">
+    <h2 id="h-pack"><span class="num">1</span>Document</h2>
+    <div class="grid-2">
       <div class="field">
-        <label for="eleve">Élève</label>
-        <input type="text" id="eleve" placeholder="Nom Prénom">
+        <span class="label">Pack</span>
+        <div class="seg">
+          <input type="radio" id="pack-std" name="pack" value="standard" checked>
+          <label for="pack-std">Standard</label>
+          <input type="radio" id="pack-exc" name="pack" value="excellence">
+          <label for="pack-exc">Excellence</label>
+        </div>
       </div>
       <div class="field">
-        <label for="classe">Classe <span style="font-weight:400">(optionnel)</span></label>
-        <input type="text" id="classe" placeholder="ex. 6e Scientifique">
+        <label for="docword">Type de document</label>
+        <select id="docword">
+          <option>DEVOIR</option>
+          <option>DEVOIR DE RECHERCHE</option>
+          <option>EXPOSÉ</option>
+          <option>RAPPORT</option>
+        </select>
       </div>
-    </div>
-    <div class="row2">
-      <div class="field">
-        <label for="matiere">Matière</label>
-        <input type="text" id="matiere" placeholder="ex. Géographie">
-      </div>
-      <div class="field">
-        <label for="titulaire">Encadreur / Professeur</label>
-        <input type="text" id="titulaire" placeholder="Nom du professeur">
-      </div>
-    </div>
-    <div class="field">
-      <label for="theme">Thème / sujet du devoir</label>
-      <input type="text" id="theme" placeholder="Sujet exact tel que donné">
-    </div>
-    <div class="row2">
-      <div class="field">
-        <label for="annee">Année scolaire</label>
-        <input type="text" id="annee" value="2026-2027">
-      </div>
-      <div class="field">
-        <label for="date">Date de remise</label>
-        <input type="text" id="date" placeholder="ex. 12 octobre 2026">
-      </div>
-    </div>
-    <div class="field">
-      <label for="docword">Type de document</label>
-      <select id="docword">
-        <option>DEVOIR</option>
-        <option>DEVOIR DE RECHERCHE</option>
-        <option>EXPOSÉ</option>
-        <option>RAPPORT</option>
-      </select>
-    </div>
-    <div class="row2">
       <div class="field">
         <label for="modele">Modèle de sommaire</label>
         <select id="modele">
@@ -225,153 +206,224 @@
     </div>
   </section>
 
-  <section>
-    <h2>Document de l'élève (optionnel)</h2>
-    <div class="field">
-      <label for="fichier">Fichier Word (.docx) ou PDF à texte</label>
-      <input type="file" id="fichier" accept=".docx,.pdf">
-      <div class="hint">Le texte est lu tel quel : rien n'est rédigé ni complété. Tu vérifies l'aperçu des titres avant de générer.</div>
-    </div>
-    <button type="button" id="btn-analyse" class="secondary">Analyser le document</button>
-    <div id="analyse-result"></div>
-  </section>
-
-  <section>
-    <h2>Texte du devoir</h2>
-    <div class="field">
-      <label for="corps">Corps du texte (collé tel quel, retours à la ligne normaux)</label>
-      <textarea id="corps" placeholder="INTRODUCTION
-
-Texte de l'introduction...
-
-I. PREMIER TITRE
-
-Texte...
-
-CONCLUSION
-
-Texte de conclusion."></textarea>
-      <div class="hint">Colle le texte normalement, avec de vrais retours à la ligne — aucune mise en forme JSON à faire, le panneau s'en charge.</div>
-    </div>
-  </section>
-
-  <section>
-    <h2>Connexion au service</h2>
-    <div class="field">
-      <label for="apiurl">Adresse du service Railway</label>
-      <input type="url" id="apiurl" value="https://nexoria-production-1367.up.railway.app/generate">
-    </div>
-    <div class="field">
-      <label for="apikey">Clé API</label>
-      <input type="password" id="apikey" placeholder="Ta clé NEXORIA_API_KEY">
-      <div class="hint">Enregistrée uniquement sur cet appareil (jamais envoyée ailleurs qu'à ton propre service).</div>
-    </div>
-  </section>
-
-  <button id="go">Générer le PDF</button>
-  <div id="status"></div>
-
-  <section id="registre" style="margin-top:18px;border-top:1px solid #DDD;padding-top:14px;">
-    <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">Registre et archives</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button type="button" id="dl-public">Registre public (.json)</button>
-      <button type="button" id="dl-complet">Sauvegarde complète (.json)</button>
-      <button type="button" id="dl-rapport">Rapport clients (.pdf)</button>
-    </div>
-    <div id="reg-status" style="margin-top:8px;font-size:13px;"></div>
-    <div style="font-size:12px;color:#666;margin-top:6px;">La sauvegarde complète et le rapport contiennent des noms : ne les publiez pas.</div>
-  </section>
-
-  <section id="verif" hidden style="margin-top:18px;border:1px solid #B89252;border-radius:8px;padding:16px;background:#F8F6F0;">
-    <div style="font-family:Georgia,serif;font-size:16px;margin-bottom:10px;">Vérification du document</div>
-    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
-      <div id="verif-qr" style="background:#fff;padding:6px;border-radius:4px;"></div>
-      <div style="min-width:180px;flex:1;">
-        <div style="font-size:12px;color:#666;">Code</div>
-        <div id="verif-code" style="font-family:monospace;font-size:15px;font-weight:bold;word-break:break-all;"></div>
-        <div style="margin-top:8px;"><a id="verif-link" href="#" target="_blank" rel="noopener">Ouvrir la page de vérification</a></div>
-        <button type="button" id="verif-copy" style="margin-top:8px;">Copier le code</button>
+  <section class="card" aria-labelledby="h-meta">
+    <h2 id="h-meta"><span class="num">2</span>Élève et devoir</h2>
+    <div class="grid-2">
+      <div class="field">
+        <label for="etablissement">Établissement</label>
+        <input type="text" id="etablissement" value="Complexe Scolaire Francisco Palau" autocomplete="off">
+        <span class="hint">Le blason s'ajoute automatiquement si l'établissement est reconnu.</span>
+      </div>
+      <div class="field">
+        <label for="annee">Année scolaire</label>
+        <input type="text" id="annee" value="2026-2027" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="eleve">Élève</label>
+        <input type="text" id="eleve" placeholder="Nom Prénom" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="classe">Classe <span class="opt">(optionnel)</span></label>
+        <input type="text" id="classe" placeholder="ex. 6e Scientifique" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="matiere">Matière</label>
+        <input type="text" id="matiere" placeholder="ex. Géographie" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="titulaire">Encadreur / professeur</label>
+        <input type="text" id="titulaire" placeholder="Nom du professeur" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="theme">Thème / sujet</label>
+        <input type="text" id="theme" placeholder="Sujet exact tel que donné" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="date">Date de remise</label>
+        <input type="text" id="date" placeholder="ex. 12 octobre 2026" autocomplete="off">
       </div>
     </div>
   </section>
 
-  <div class="foot">NEXORIA — panneau interne, usage local uniquement.</div>
+  <section class="card" aria-labelledby="h-text">
+    <h2 id="h-text"><span class="num">3</span>Texte du devoir</h2>
+    <div class="field">
+      <label for="fichier">Importer un fichier <span class="opt">(.docx de préférence, ou PDF à texte)</span></label>
+      <input type="file" id="fichier" accept=".docx,.pdf">
+      <div class="btn-row">
+        <button type="button" class="btn small" id="btn-analyse">Lire le fichier</button>
+      </div>
+      <div id="analyse-result" class="notice" hidden></div>
+    </div>
+    <div class="field">
+      <label for="corps">Texte</label>
+      <textarea id="corps" spellcheck="true" placeholder="INTRODUCTION&#10;&#10;Texte de l'introduction...&#10;&#10;I. PREMIER TITRE&#10;&#10;Texte...&#10;&#10;CONCLUSION&#10;&#10;Texte de conclusion."></textarea>
+      <div class="stats" id="stats"></div>
+      <div id="structure" class="notice" hidden></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-queue">
+    <h2 id="h-queue"><span class="num">4</span>File d'attente</h2>
+    <p class="hint" style="margin:0 0 10px">Les documents non envoyés (pas de connexion, ou mis en attente) restent sur cet appareil. Ils sont envoyés dès que la connexion revient, ou sur ton action.</p>
+    <div class="btn-row" style="margin-bottom:10px">
+      <button type="button" class="btn" id="q-send">Envoyer la file</button>
+      <button type="button" class="btn" id="q-clear">Vider la file</button>
+    </div>
+    <div id="queue" class="queue"></div>
+    <div id="queue-empty" class="empty">Aucun document en attente.</div>
+  </section>
+
+  <details class="card" id="reglages">
+    <summary>Connexion et clé</summary>
+    <div class="inner">
+      <div class="field">
+        <label for="apiurl">Adresse du service</label>
+        <input type="url" id="apiurl" value="https://nexoria-production-1367.up.railway.app/generate" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="apikey">Clé API</label>
+        <input type="password" id="apikey" placeholder="NEXORIA_API_KEY" autocomplete="off">
+        <span class="hint">Gardée sur cet appareil uniquement. Jamais envoyée ailleurs que vers ton service.</span>
+      </div>
+      <label class="checks"><input type="checkbox" id="remember" checked> Mémoriser la clé sur cet appareil</label>
+    </div>
+  </details>
+
+  <details class="card" id="registre-box">
+    <summary>Registre et archives</summary>
+    <div class="inner">
+      <div class="btn-row">
+        <button type="button" class="btn" id="dl-public">Registre public (.json)</button>
+        <button type="button" class="btn" id="dl-complet">Sauvegarde complète (.json)</button>
+        <button type="button" class="btn" id="dl-rapport">Rapport clients (.pdf)</button>
+      </div>
+      <div id="reg-status" class="status" aria-live="polite"></div>
+      <span class="hint">La sauvegarde complète et le rapport contiennent des noms : ne les publie pas.</span>
+    </div>
+  </details>
+
+  <section class="card" id="verif" hidden aria-labelledby="h-verif">
+    <h2 id="h-verif"><span class="num">✓</span>Dernier document</h2>
+    <div class="verif">
+      <div class="qr" id="verif-qr" aria-label="QR code de vérification"></div>
+      <div style="display:grid; gap:6px; min-width:0">
+        <div class="hint">Code de vérification</div>
+        <div class="code" id="verif-code"></div>
+        <a class="link" id="verif-link" href="#" target="_blank" rel="noopener">Ouvrir la page de vérification</a>
+        <div class="btn-row"><button type="button" class="btn small" id="verif-copy">Copier le code</button></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">Panneau interne NEXORIA</div>
 </main>
+
+<div class="actionbar">
+  <div class="actionbar-inner">
+    <div>
+      <div class="status" id="status" role="status" aria-live="polite"></div>
+    </div>
+    <div class="btn-row" style="justify-content:flex-end">
+      <button type="button" class="btn" id="q-add">Mettre en file</button>
+      <button type="button" class="btn primary big" id="go">Générer</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 (function () {
   "use strict";
-  var ids = ["etablissement","eleve","classe","matiere","titulaire","theme","annee","date","docword","corps","apiurl","apikey"];
-  var STORE = "nexoria_panel_v1";
 
-  function load() {
-    try {
-      var raw = localStorage.getItem(STORE);
-      if (!raw) return;
-      var data = JSON.parse(raw);
-      ids.forEach(function (id) {
-        if (data[id] !== undefined && id !== "corps") {
-          var el = document.getElementById(id);
-          if (el) el.value = data[id];
-        }
-      });
-      if (data.pack) {
-        var r = document.querySelector('input[name=pack][value="' + data.pack + '"]');
-        if (r) r.checked = true;
-      }
-    } catch (e) {}
+  var VERSION = "3.8";
+  var STORE_PREFS = "nexoria_panel_v2";   // préférences (sans texte de devoir, sans clé si « non mémorisée »)
+  var STORE_QUEUE = "nexoria_queue_v2";   // file d'attente : jamais la clé API
+  var MAX_QUEUE = 40;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var blobs = {};   // PDF générés pendant cette session (pas stockés : trop lourds pour le stockage local)
+  var sending = false;
+
+  // ---------- stockage (toujours protégé par try/catch) ----------
+  function readJSON(key, fallback) {
+    try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+    catch (e) { return fallback; }
+  }
+  function writeJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
+    catch (e) { return false; }
   }
 
-  function save() {
-    try {
-      var data = {};
-      ids.forEach(function (id) {
-        if (id === "corps") return; // on ne garde pas le texte d'un devoir à l'autre
-        var el = document.getElementById(id);
-        if (el) data[id] = el.value;
-      });
-      var checked = document.querySelector('input[name=pack]:checked');
-      data.pack = checked ? checked.value : "standard";
-      localStorage.setItem(STORE, JSON.stringify(data));
-    } catch (e) {}
+  // ---------- utilitaires ----------
+  function val(id) { return $(id).value.trim(); }
+  function packValue() { var c = document.querySelector('input[name=pack]:checked'); return c ? c.value : "standard"; }
+  function serviceBase() { return val("apiurl").replace(/\/generate\/?$/, ""); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function setStatus(msg, cls) { var s = $("status"); s.textContent = msg; s.className = "status" + (cls ? " " + cls : ""); }
+
+  // ---------- préférences ----------
+  var PREF_FIELDS = ["etablissement", "annee", "docword", "modele", "police", "apiurl", "classe", "matiere", "titulaire"];
+  function loadPrefs() {
+    var d = readJSON(STORE_PREFS, null);
+    if (!d) return;
+    PREF_FIELDS.forEach(function (id) { if (d[id] !== undefined && $(id)) $(id).value = d[id]; });
+    if (d.pack) { var r = document.querySelector('input[name=pack][value="' + d.pack + '"]'); if (r) r.checked = true; }
+    if (d.remember === false) { $("remember").checked = false; }
+    var k = sessionStorage.getItem("nexoria_key");
+    if (d.remember !== false && d.apikey) $("apikey").value = d.apikey;
+    if (k) $("apikey").value = k;
+  }
+  function savePrefs() {
+    var d = { pack: packValue(), remember: $("remember").checked };
+    PREF_FIELDS.forEach(function (id) { d[id] = $(id).value; });
+    if ($("remember").checked) d.apikey = $("apikey").value;
+    writeJSON(STORE_PREFS, d);
+    try { sessionStorage.setItem("nexoria_key", $("apikey").value); } catch (e) {}
   }
 
-  function refreshPackStyle() {
-    document.getElementById("lblStd").classList.toggle("active",
-      document.querySelector('input[name=pack][value="standard"]').checked);
-    document.getElementById("lblExc").classList.toggle("active",
-      document.querySelector('input[name=pack][value="excellence"]').checked);
+  // ---------- analyse du texte (mêmes règles que le service) ----------
+  var HEADING_RE = /^(INTRODUCTION|CONCLUSION|PETITE BIBLIOGRAPHIE[\w\s'’.-]*|[IVX]+\.\s+\S.*)$/;
+  function analyseCorps() {
+    var txt = $("corps").value;
+    var lines = txt.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+    var words = txt.trim() ? txt.trim().split(/\s+/).length : 0;
+    var titres = lines.filter(function (l) { return HEADING_RE.test(l) && l.length <= 90; });
+    titres = titres.filter(function (t, i, a) { return a.indexOf(t) === i; });
+    var hasIntro = titres.some(function (t) { return /^INTRODUCTION$/.test(t); });
+    var hasConcl = titres.some(function (t) { return /^CONCLUSION$/.test(t); });
+    var tables = lines.filter(function (l) { return /^Tableau\s+\d+\s*[—–-]/.test(l); }).length;
+    var avis = [];
+    if (!txt.trim()) avis.push("Le texte est vide.");
+    if (txt.trim() && !hasIntro) avis.push("Pas de section INTRODUCTION reconnue (titre seul sur sa ligne).");
+    if (txt.trim() && !hasConcl) avis.push("Pas de section CONCLUSION reconnue (titre seul sur sa ligne).");
+    if (tables) avis.push(tables + " tableau(x) : vérifie qu'ils ne sont pas aplatis en lignes de texte.");
+    if (txt.length > 300000) avis.push("Texte trop long (300 000 caractères maximum).");
+    return { words: words, chars: txt.length, titres: titres, avis: avis, ok: txt.trim().length > 0 && txt.length <= 300000 };
+  }
+  function renderAnalyse() {
+    var a = analyseCorps();
+    $("stats").innerHTML =
+      '<span class="chip">' + a.words + ' mots</span>' +
+      '<span class="chip">' + a.titres.length + ' titre' + (a.titres.length > 1 ? "s" : "") + ' reconnu' + (a.titres.length > 1 ? "s" : "") + '</span>' +
+      (a.avis.length === 0 && a.ok ? '<span class="chip ok">Structure complète</span>' : "");
+    var box = $("structure");
+    if (!a.avis.length) { box.hidden = true; return; }
+    box.hidden = false;
+    box.className = "notice warn";
+    box.innerHTML = "<strong>À vérifier avant génération</strong><ul>" +
+      a.avis.map(function (x) { return "<li>" + escapeHtml(x) + "</li>"; }).join("") + "</ul>";
   }
 
-  document.querySelectorAll('input[name=pack]').forEach(function (r) {
-    r.addEventListener("change", refreshPackStyle);
-  });
-
-  function setStatus(msg, cls) {
-    var s = document.getElementById("status");
-    s.textContent = msg;
-    s.className = cls || "";
-  }
-
-  function val(id) { return document.getElementById(id).value.trim(); }
-
-  async function generate() {
-    var required = ["eleve", "matiere", "titulaire", "theme", "annee", "date", "apiurl", "apikey"];
-    for (var i = 0; i < required.length; i++) {
-      if (!val(required[i])) {
-        setStatus("Champ manquant : " + required[i], "err");
-        return;
-      }
-    }
-    if (!val("corps")) {
-      setStatus("Le corps du texte est vide.", "err");
-      return;
-    }
-
-    var pack = document.querySelector('input[name=pack]:checked').value;
-    var payload = {
-      pack: pack,
+  // ---------- payload ----------
+  function buildPayload() {
+    return {
+      pack: packValue(),
       meta: {
         etablissement: val("etablissement"),
         eleve: val("eleve"),
@@ -383,165 +435,255 @@ Texte de conclusion."></textarea>
         date: val("date"),
         doc_word: val("docword") || "DEVOIR"
       },
-      corps_texte: document.getElementById("corps").value,
+      corps_texte: $("corps").value,
       sommaire: val("modele") || "classique",
       police: val("police") || "defaut"
     };
-
-    var btn = document.getElementById("go");
-    btn.disabled = true;
-    setStatus("Génération en cours...", "busy");
-    save();
-
-    try {
-      var resp = await fetch(val("apiurl"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": val("apikey")
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!resp.ok) {
-        var text = await resp.text();
-        var msg = text;
-        try { msg = JSON.parse(text).detail || text; } catch (e) {}
-        setStatus("Erreur " + resp.status + " : " + msg, "err");
-        btn.disabled = false;
-        return;
-      }
-
-      var code = resp.headers.get("X-Verification-Code") || "";
-      var vurl = resp.headers.get("X-Verification-Url") || "";
-      var blob = await resp.blob();
-      var filename = (payload.meta.doc_word + "_" + payload.meta.eleve + "_" + pack.toUpperCase())
-        .replace(/\s+/g, "_") + ".pdf";
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-      setStatus("PDF généré et téléchargé \u2713", "ok");
-      showVerif(code, vurl);
-    } catch (e) {
-      setStatus("Impossible de joindre le service (vérifie l'adresse et ta connexion).", "err");
+  }
+  function checkBeforeSend(p) {
+    var need = [["eleve", "Élève"], ["matiere", "Matière"], ["titulaire", "Encadreur"], ["theme", "Thème"], ["annee", "Année"], ["date", "Date de remise"]];
+    for (var i = 0; i < need.length; i++) {
+      if (!p.meta[need[i][0]]) return need[i][1] + " manquant.";
     }
-    btn.disabled = false;
+    if (!p.corps_texte.trim()) return "Le texte du devoir est vide.";
+    if (!val("apiurl")) return "Adresse du service manquante (section « Connexion et clé »).";
+    return null;
+  }
+  function fileName(p, code) {
+    var base = [p.meta.doc_word, p.meta.eleve, p.pack.toUpperCase()].join("_");
+    return base.replace(/\s+/g, "_").replace(/[^\w\-.À-ÿ]/g, "") + ".pdf";
   }
 
-  function serviceBase() {
-    return val("apiurl").replace(/\/generate\/?$/, "");
-  }
-
-  async function telecharger(chemin, nomFichier) {
-    var st = document.getElementById("reg-status");
-    st.textContent = "Préparation en cours...";
-    try {
-      var resp = await fetch(serviceBase() + chemin, { headers: { "X-API-Key": val("apikey") } });
-      if (!resp.ok) {
-        var t = await resp.text(); var m = t;
-        try { m = JSON.parse(t).detail || t; } catch (e) {}
-        st.textContent = "Erreur " + resp.status + " : " + m;
-        return;
-      }
-      var blob = await resp.blob();
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url; a.download = nomFichier;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-      st.textContent = "Fichier téléchargé \u2713";
-    } catch (e) {
-      st.textContent = "Impossible de joindre le service.";
+  // ---------- réseau ----------
+  async function postGenerate(payload, key) {
+    var resp = await fetch(val("apiurl"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-API-Key": key },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      var t = await resp.text(), m = t;
+      try { m = JSON.parse(t).detail || t; } catch (e) {}
+      var err = new Error(m); err.status = resp.status; throw err;
     }
-  }
-  document.getElementById("dl-public").onclick = function () { telecharger("/registre/public", "verifications.json"); };
-  document.getElementById("dl-complet").onclick = function () { telecharger("/registre/complet", "registre_complet_nexoria.json"); };
-  document.getElementById("dl-rapport").onclick = function () { telecharger("/rapport", "rapport_nexoria.pdf"); };
-
-  function showVerif(code, vurl) {
-    var box = document.getElementById("verif");
-    if (!code) { box.hidden = true; return; }
-    box.hidden = false;
-    document.getElementById("verif-code").textContent = code;
-    var link = document.getElementById("verif-link");
-    link.href = vurl;
-    var qrEl = document.getElementById("verif-qr");
-    qrEl.innerHTML = "";
-    if (window.qrcode) {
-      var qr = qrcode(0, "M");
-      qr.addData(vurl);
-      qr.make();
-      qrEl.innerHTML = qr.createImgTag(4, 8);
-    }
-    document.getElementById("verif-copy").onclick = function () {
-      if (navigator.clipboard) navigator.clipboard.writeText(code);
+    return {
+      blob: await resp.blob(),
+      code: resp.headers.get("X-Verification-Code") || "",
+      vurl: resp.headers.get("X-Verification-Url") || ""
     };
   }
-
-  async function analyseFichier() {
-    var input = document.getElementById("fichier");
-    var out = document.getElementById("analyse-result");
-    var btnA = document.getElementById("btn-analyse");
-    out.innerHTML = "";
-    if (!input.files || !input.files.length) {
-      out.className = "err"; out.textContent = "Choisis d'abord un fichier .docx ou .pdf.";
-      return;
-    }
-    if (!val("apiurl") || !val("apikey")) {
-      out.className = "err"; out.textContent = "Renseigne l'adresse et la clé API ci-dessous.";
-      return;
-    }
-    var url = val("apiurl").replace(/\/generate\/?$/, "/extract");
-    var fd = new FormData();
-    fd.append("file", input.files[0]);
-    btnA.disabled = true;
-    out.className = "busy"; out.textContent = "Lecture du document en cours...";
-    try {
-      var resp = await fetch(url, {
-        method: "POST",
-        headers: { "X-API-Key": val("apikey") },
-        body: fd
-      });
-      var text = await resp.text();
-      var data = null;
-      try { data = JSON.parse(text); } catch (e) {}
-      if (!resp.ok) {
-        out.className = "err";
-        out.textContent = "Erreur " + resp.status + " : " + ((data && data.detail) || text);
-        btnA.disabled = false;
-        return;
-      }
-      document.getElementById("corps").value = data.corps_texte;
-      var lines = [];
-      lines.push("Titres reconnus (" + data.titres.length + ") : " +
-                 (data.titres.length ? data.titres.join("  /  ") : "aucun"));
-      if (data.titres_non_reconnus && data.titres_non_reconnus.length) {
-        lines.push("À vérifier, titres non reconnus : " + data.titres_non_reconnus.join("  /  "));
-      }
-      lines.push("Texte chargé dans le champ ci-dessous : " + data.nb_paragraphes +
-                 " paragraphes. Vérifie l'aperçu, puis génère.");
-      lines.forEach(function (l) {
-        var d = document.createElement("div");
-        d.textContent = l;
-        out.appendChild(d);
-      });
-      out.className = "ok";
-    } catch (e) {
-      out.className = "err";
-      out.textContent = "Impossible de joindre le service (vérifie l'adresse et ta connexion).";
-    }
-    btnA.disabled = false;
+  function downloadBlob(blob, name) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
   }
 
-  document.getElementById("btn-analyse").addEventListener("click", analyseFichier);
-  document.getElementById("go").addEventListener("click", generate);
-  load();
-  refreshPackStyle();
+  // ---------- file d'attente ----------
+  function getQueue() { var q = readJSON(STORE_QUEUE, []); return Array.isArray(q) ? q : []; }
+  function setQueue(q) { return writeJSON(STORE_QUEUE, q); }
+  function enqueue(payload, label) {
+    var q = getQueue();
+    if (q.length >= MAX_QUEUE) { setStatus("File pleine (" + MAX_QUEUE + " documents). Envoie-la ou vide-la.", "err"); return null; }
+    var job = { id: uid(), created: new Date().toISOString(), label: label, payload: payload, state: "attente", error: "" };
+    q.push(job);
+    if (!setQueue(q)) { setStatus("Stockage de l'appareil plein : impossible de mettre en file.", "err"); return null; }
+    renderQueue();
+    return job;
+  }
+  function updateJob(id, patch) {
+    var q = getQueue();
+    q.forEach(function (j) { if (j.id === id) Object.keys(patch).forEach(function (k) { j[k] = patch[k]; }); });
+    setQueue(q);
+    renderQueue();
+  }
+  function removeJob(id) { setQueue(getQueue().filter(function (j) { return j.id !== id; })); delete blobs[id]; renderQueue(); }
+
+  var STATE_LABEL = { attente: "En attente", envoi: "Envoi…", fini: "Prêt", echec: "Échec" };
+  function renderQueue() {
+    var q = getQueue(), box = $("queue");
+    $("queue-empty").hidden = q.length > 0;
+    box.innerHTML = q.map(function (j) {
+      var cls = j.state === "fini" ? "ok" : (j.state === "echec" ? "err" : "");
+      var actions = "";
+      if (j.state === "fini" && blobs[j.id]) actions += '<button class="btn small" data-act="dl" data-id="' + j.id + '">Télécharger</button>';
+      if (j.state !== "envoi") actions += '<button class="btn small" data-act="rm" data-id="' + j.id + '">Retirer</button>';
+      return '<div class="job">' +
+        '<div class="job-top"><span class="job-title">' + escapeHtml(j.label) + '</span>' +
+        '<span class="job-state ' + cls + '">' + STATE_LABEL[j.state] + '</span></div>' +
+        (j.error ? '<div class="hint" style="color:var(--err)">' + escapeHtml(j.error) + '</div>' : "") +
+        '<div class="job-actions">' + actions + '</div></div>';
+    }).join("");
+  }
+  $("queue").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-act]"); if (!b) return;
+    var id = b.getAttribute("data-id");
+    if (b.getAttribute("data-act") === "rm") removeJob(id);
+    if (b.getAttribute("data-act") === "dl" && blobs[id]) {
+      var j = getQueue().filter(function (x) { return x.id === id; })[0];
+      downloadBlob(blobs[id], fileName(j.payload, j.code));
+    }
+  });
+
+  async function sendQueue(auto) {
+    if (sending) return;
+    var key = val("apikey");
+    if (!key || !val("apiurl")) { setStatus("Renseigne l'adresse et la clé dans « Connexion et clé ».", "err"); return; }
+    var pending = getQueue().filter(function (j) { return j.state === "attente" || j.state === "echec"; });
+    if (!pending.length) { if (!auto) setStatus("Rien à envoyer.", ""); return; }
+    sending = true; $("q-send").disabled = true; $("go").disabled = true;
+    var done = 0;
+    for (var i = 0; i < pending.length; i++) {
+      var j = pending[i];
+      updateJob(j.id, { state: "envoi", error: "" });
+      setStatus("Envoi " + (i + 1) + " / " + pending.length + "…", "busy");
+      try {
+        var r = await postGenerate(j.payload, key);
+        blobs[j.id] = r.blob;
+        updateJob(j.id, { state: "fini", code: r.code, vurl: r.vurl, error: "" });
+        showVerif(r.code, r.vurl);
+        done++;
+      } catch (e) {
+        var offline = !(e && e.status);
+        updateJob(j.id, { state: "echec", error: offline ? "Pas de connexion : reste en file." : ("Erreur " + e.status + " : " + e.message) });
+        if (offline) break;   // inutile d'insister hors ligne
+      }
+    }
+    sending = false; $("q-send").disabled = false; $("go").disabled = false;
+    setStatus(done ? done + " document(s) prêt(s) — télécharge-les dans la file." : "Aucun envoi réussi.", done ? "ok" : "err");
+  }
+
+  // ---------- génération directe ----------
+  async function generer() {
+    savePrefs();
+    var p = buildPayload();
+    var manque = checkBeforeSend(p);
+    if (manque) { setStatus(manque, "err"); return; }
+    var key = val("apikey");
+    if (!key) { setStatus("Clé API manquante (section « Connexion et clé »).", "err"); return; }
+    if (!navigator.onLine) {
+      var jOff = enqueue(p, p.meta.eleve + " — " + p.pack);
+      if (jOff) setStatus("Pas de connexion : document mis en file.", "err");
+      return;
+    }
+    $("go").disabled = true;
+    setStatus("Génération en cours…", "busy");
+    try {
+      var r = await postGenerate(p, key);
+      var id = uid();
+      blobs[id] = r.blob;
+      downloadBlob(r.blob, fileName(p, r.code));
+      setStatus("PDF généré et téléchargé ✓", "ok");
+      showVerif(r.code, r.vurl);
+    } catch (e) {
+      if (!e.status) {
+        var j = enqueue(p, p.meta.eleve + " — " + p.pack);
+        setStatus(j ? "Connexion perdue : document mis en file." : "Connexion perdue.", "err");
+      } else {
+        setStatus("Erreur " + e.status + " : " + e.message, "err");
+      }
+    }
+    $("go").disabled = false;
+  }
+
+  function mettreEnFile() {
+    savePrefs();
+    var p = buildPayload();
+    var manque = checkBeforeSend(p);
+    if (manque && manque !== "Adresse du service manquante (section « Connexion et clé »).") { setStatus(manque, "err"); return; }
+    var j = enqueue(p, p.meta.eleve + " — " + p.pack);
+    if (j) setStatus("Document ajouté à la file.", "ok");
+  }
+
+  // ---------- registre ----------
+  async function telecharger(chemin, nom) {
+    var st = $("reg-status");
+    if (!val("apikey")) { st.textContent = "Clé API manquante."; return; }
+    st.textContent = "Préparation…";
+    try {
+      var resp = await fetch(serviceBase() + chemin, { headers: { "X-API-Key": val("apikey") } });
+      if (!resp.ok) { var t = await resp.text(), m = t; try { m = JSON.parse(t).detail || t; } catch (e) {} st.textContent = "Erreur " + resp.status + " : " + m; return; }
+      downloadBlob(await resp.blob(), nom);
+      st.textContent = "Téléchargé ✓";
+    } catch (e) { st.textContent = "Pas de connexion au service."; }
+  }
+
+  // ---------- vérification ----------
+  function showVerif(code, vurl) {
+    if (!code) return;
+    $("verif").hidden = false;
+    $("verif-code").textContent = code;
+    $("verif-link").href = vurl || "#";
+    var box = $("verif-qr"); box.innerHTML = "";
+    if (window.qrcode && vurl) {
+      try { var qr = qrcode(0, "M"); qr.addData(vurl); qr.make(); box.innerHTML = qr.createImgTag(4, 8); } catch (e) {}
+    }
+  }
+  $("verif-copy").addEventListener("click", function () {
+    var code = $("verif-code").textContent;
+    if (navigator.clipboard && code) navigator.clipboard.writeText(code).then(function () { $("verif-copy").textContent = "Copié ✓"; });
+  });
+
+  // ---------- lecture de fichier ----------
+  async function lireFichier() {
+    var input = $("fichier"), out = $("analyse-result"), b = $("btn-analyse");
+    out.hidden = false; out.className = "notice";
+    if (!input.files || !input.files.length) { out.className = "notice err"; out.textContent = "Choisis d'abord un fichier .docx ou .pdf."; return; }
+    if (!val("apikey")) { out.className = "notice err"; out.textContent = "Renseigne la clé API (section « Connexion et clé »)."; return; }
+    var fd = new FormData(); fd.append("file", input.files[0]);
+    b.disabled = true; out.textContent = "Lecture du fichier…";
+    try {
+      var resp = await fetch(serviceBase() + "/extract", { method: "POST", headers: { "X-API-Key": val("apikey") }, body: fd });
+      var text = await resp.text(), data = null;
+      try { data = JSON.parse(text); } catch (e) {}
+      if (!resp.ok) { out.className = "notice err"; out.textContent = "Erreur " + resp.status + " : " + ((data && data.detail) || text); return; }
+      $("corps").value = data.corps_texte;
+      renderAnalyse();
+      var lignes = ["Texte chargé : " + data.nb_paragraphes + " paragraphes, " + data.titres.length + " titres reconnus."];
+      if (data.titres_non_reconnus && data.titres_non_reconnus.length) lignes.push("Titres non reconnus : " + data.titres_non_reconnus.join(" / "));
+      if (data.avertissement) lignes.push(data.avertissement);
+      (data.diagnostic || []).forEach(function (d) { lignes.push(d); });
+      out.className = (data.diagnostic && data.diagnostic.length) || data.avertissement ? "notice warn" : "notice";
+      out.innerHTML = lignes.map(function (l) { return "<div>" + escapeHtml(l) + "</div>"; }).join("");
+    } catch (e) {
+      out.className = "notice err"; out.textContent = "Pas de connexion au service.";
+    } finally { b.disabled = false; }
+  }
+
+  // ---------- événements ----------
+  $("go").addEventListener("click", generer);
+  $("q-add").addEventListener("click", mettreEnFile);
+  $("q-send").addEventListener("click", function () { sendQueue(false); });
+  $("q-clear").addEventListener("click", function () {
+    if (!getQueue().length) return;
+    if (confirm("Vider la file ? Les documents non envoyés seront supprimés de cet appareil.")) { setQueue([]); blobs = {}; renderQueue(); }
+  });
+  $("btn-analyse").addEventListener("click", lireFichier);
+  $("corps").addEventListener("input", renderAnalyse);
+  $("remember").addEventListener("change", savePrefs);
+  $("dl-public").addEventListener("click", function () { telecharger("/registre/public", "verifications.json"); });
+  $("dl-complet").addEventListener("click", function () { telecharger("/registre/complet", "registre_complet_nexoria.json"); });
+  $("dl-rapport").addEventListener("click", function () { telecharger("/rapport", "rapport_nexoria.pdf"); });
+  window.addEventListener("online", function () {
+    if (getQueue().some(function (j) { return j.state === "attente" || j.state === "echec"; })) {
+      setStatus("Connexion revenue : envoi de la file…", "busy");
+      sendQueue(true);
+    }
+  });
+  document.querySelectorAll("input, select, textarea").forEach(function (el) {
+    el.addEventListener("change", savePrefs);
+  });
+
+  // ---------- démarrage ----------
+  loadPrefs();
+  if (!val("apikey")) $("reglages").open = true;   // clé absente : la section Connexion s'ouvre
+  $("service-line").textContent = "Génération · v" + VERSION;
+  renderAnalyse();
+  renderQueue();
+  if (getQueue().some(function (j) { return j.state === "attente"; })) {
+    setStatus(getQueue().filter(function (j) { return j.state === "attente"; }).length + " document(s) en attente d'envoi.", "busy");
+  }
 })();
 </script>
 </body>

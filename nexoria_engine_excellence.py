@@ -195,19 +195,21 @@ def build_body_excellence(blocks, out_pdf, running_title):
         initiale or en ligne si le paragraphe tient sur 1 ligne. Corrige un déséquilibre
         visuel : une lettrine calée sur 3 lignes pour un paragraphe qui n'en fait que 2
         laisse un vide disproportionné sous la lettre."""
-        if starts_with_caps(text):
-            return Paragraph(fr(text), body_style(kwn, False)), 46
-        if cp1252_ok(text) and "³" not in text and "²" not in text:
-            dc = GoldDropCap(text, cap_lines=3)
+        # v3.7 : règle unique, sans variante. Pas de lettrine si le paragraphe ouvre par un mot
+        # en capitales ou par un caractère non alphabétique ; lettrine sur 2 ou 3 lignes
+        # selon la longueur ; un paragraphe d'une seule ligne reste un paragraphe normal.
+        plain = (Paragraph(fr(text), body_style(kwn, False)), 46)
+        if starts_with_caps(text) or not text[:1].isalpha():
+            return plain
+        dc = GoldDropCap(text, cap_lines=3)
+        dc.wrap(fw, 10000)
+        if len(dc.lines) <= 1:
+            return plain
+        if len(dc.lines) == 2:
+            dc = GoldDropCap(text, cap_lines=2)
             dc.wrap(fw, 10000)
-            if len(dc.lines) == 2:
-                dc = GoldDropCap(text, cap_lines=2)
-                dc.wrap(fw, 10000)
-                return dc, dc.total_height
-            if len(dc.lines) >= 3:
-                return dc, dc.total_height
-        p = gold_initial(text, body_style(kwn, False))
-        return p, 46
+            return dc, dc.total_height
+        return dc, dc.total_height
 
     i = 0
     while i < len(blocks):
