@@ -260,6 +260,7 @@
       <textarea id="corps" spellcheck="true" placeholder="INTRODUCTION&#10;&#10;Texte de l'introduction...&#10;&#10;I. PREMIER TITRE&#10;&#10;Texte...&#10;&#10;CONCLUSION&#10;&#10;Texte de conclusion."></textarea>
       <div class="stats" id="stats"></div>
       <div id="structure" class="notice" hidden></div>
+      <label class="checks" style="margin-top:10px"><input type="checkbox" id="force"> Forcer la génération malgré les blocages (validé par un humain)</label>
     </div>
   </section>
 
@@ -487,7 +488,8 @@
       },
       corps_texte: $("corps").value,
       sommaire: val("modele") || "classique",
-      police: val("police") || "defaut"
+      police: val("police") || "defaut",
+      force: $("force").checked
     };
   }
   function checkBeforeSend(p) {
@@ -604,6 +606,29 @@
     setStatus(done ? done + " document(s) prêt(s) — télécharge-les dans la file." : "Aucun envoi réussi.", done ? "ok" : "err");
   }
 
+  // ---------- contrôle de cohérence (service) ----------
+  async function controler(p) {
+    try {
+      var resp = await fetch(serviceBase() + "/verifier", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": val("apikey") },
+        body: JSON.stringify({ meta: p.meta, corps_texte: p.corps_texte })
+      });
+      if (!resp.ok) return null;
+      return await resp.json();
+    } catch (e) { return null; }
+  }
+  function afficherControle(r) {
+    var box = $("structure");
+    if (!r) return;
+    var html = "";
+    if (r.erreurs.length) html += "<strong>Bloqué</strong><ul>" + r.erreurs.map(function (x) { return "<li>" + escapeHtml(x) + "</li>"; }).join("") + "</ul>";
+    if (r.avertissements.length) html += "<strong>À vérifier</strong><ul>" + r.avertissements.map(function (x) { return "<li>" + escapeHtml(x) + "</li>"; }).join("") + "</ul>";
+    box.hidden = !html;
+    box.className = r.statut === "bloque" ? "notice err" : (r.statut === "a_verifier" ? "notice warn" : "notice");
+    box.innerHTML = html;
+  }
+
   // ---------- génération directe ----------
   async function generer() {
     savePrefs();
@@ -612,6 +637,12 @@
     if (manque) { setStatus(manque, "err"); return; }
     var key = val("apikey");
     if (!key) { setStatus("Clé API manquante (section « Connexion et clé »).", "err"); return; }
+    var ctl = navigator.onLine ? await controler(p) : null;
+    afficherControle(ctl);
+    if (ctl && ctl.statut === "bloque" && !$("force").checked) {
+      setStatus("Génération bloquée : corrige les points signalés, ou coche « Forcer » si tu as vérifié.", "err");
+      return;
+    }
     if (!navigator.onLine) {
       var jOff = enqueue(p, p.meta.eleve + " — " + p.pack);
       if (jOff) setStatus("Pas de connexion : document mis en file.", "err");

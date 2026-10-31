@@ -26,12 +26,13 @@ import logging
 
 import core
 import nexoria_structure
+import nexoria_coordination as coord
 import extract
 import rapport
 import verification
 import nexoria_sommaires as som
 
-SERVICE_VERSION = "3.9"
+SERVICE_VERSION = "3.10"
 MAX_CORPS = 300_000  # caractères : un devoir long reste très en dessous
 log = logging.getLogger("nexoria")
 logging.basicConfig(level=logging.INFO)
@@ -90,6 +91,7 @@ class GenerateRequest(BaseModel):
         "classique", description="Modèle de sommaire (voir GET /modeles)")
     police: Literal["defaut", "times", "helvetica", "dejavu-sans"] = Field(
         "defaut", description="Police du corps de texte et des sommaires (voir GET /modeles)")
+    force: bool = Field(False, description="Génère même si le contrôle bloque (validation humaine)")
 
 
 @app.get("/health")
@@ -106,6 +108,10 @@ def modeles():
 @app.post("/generate")
 def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(None)):
     check_key(x_api_key)
+    # v3.10 : contrôle de cohérence avant génération (thème/contenu, titres, texte vide)
+    verif = coord.verifier(req.meta.model_dump(), req.corps_texte)
+    if not coord.decider(verif, force=req.force):
+        raise HTTPException(422, "Génération bloquée : " + " ".join(verif["erreurs"]))
     try:
         pdf_bytes = core.build_pdf(req.pack, req.meta.model_dump(), req.corps_texte,
                                    sommaire=req.sommaire, police=req.police)
@@ -185,3 +191,16 @@ def structure(req: StructureRequest, x_api_key: Optional[str] = Header(None)):
     Ne modifie aucun mot : seulement la mise en forme des titres et des paragraphes."""
     check_key(x_api_key)
     return nexoria_structure.reconstruire(req.texte)
+
+
+class VerifierRequest(BaseModel):
+    meta: Meta
+    corps_texte: str = Field(..., max_length=MAX_CORPS)
+
+
+@app.post("/verifier")
+def verifier_route(req: VerifierRequest, x_api_key: Optional[str] = Header(None)):
+    """Contrôle de cohérence sans génération : statut (pret / a_verifier / bloque), erreurs, avertissements,
+    titres reconnus et texte reformaté. Aucun mot n'est modifié."""
+    check_key(x_api_key)
+    return coord.verifier(req.meta.model_dump(), req.corps_texte)
