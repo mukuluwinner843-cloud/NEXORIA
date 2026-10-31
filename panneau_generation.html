@@ -406,7 +406,57 @@
     if (txt.length > 300000) avis.push("Texte trop long (300 000 caractères maximum).");
     return { words: words, chars: txt.length, titres: titres, avis: avis, ok: txt.trim().length > 0 && txt.length <= 300000 };
   }
-  function renderAnalyse() {
+  // v3.9 : analyse serveur (même moteur que la génération), repli local si injoignable
+  var structTimer = null, structSeq = 0;
+  function verifierStructure() {
+    clearTimeout(structTimer);
+    structTimer = setTimeout(async function () {
+      var seq = ++structSeq;
+      var txt = $("corps").value;
+      if (!txt.trim() || !val("apikey") || !val("apiurl")) { renderAnalyse(true); return; }
+      try {
+        var resp = await fetch(serviceBase() + "/structure", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-API-Key": val("apikey") },
+          body: JSON.stringify({ texte: txt })
+        });
+        if (seq !== structSeq) return;               // une analyse plus récente est en cours
+        if (!resp.ok) { renderAnalyse(true); return; }
+        var data = await resp.json();
+        renderServeur(data, txt);
+      } catch (e) { if (seq === structSeq) renderAnalyse(true); }
+    }, 650);
+  }
+  function renderServeur(d, txtOriginal) {
+    $("stats").innerHTML =
+      '<span class="chip">' + d.titres.length + ' titre' + (d.titres.length > 1 ? "s" : "") + ' reconnu' + (d.titres.length > 1 ? "s" : "") + '</span>' +
+      (d.deduits.length ? '<span class="chip">' + d.deduits.length + ' déduit' + (d.deduits.length > 1 ? "s" : "") + '</span>' : "") +
+      (d.avis.length === 0 ? '<span class="chip ok">Structure complète</span>' : "");
+    var box = $("structure");
+    var html = "";
+    if (d.titres.length) {
+      html += "<div><strong>Titres détectés</strong></div><ul>" +
+        d.titres.map(function (t) { return "<li>" + escapeHtml(t) + "</li>"; }).join("") + "</ul>";
+    }
+    if (d.avis.length) {
+      html += "<ul>" + d.avis.map(function (x) { return "<li>" + escapeHtml(x) + "</li>"; }).join("") + "</ul>";
+    }
+    var changed = d.texte !== txtOriginal;
+    if (changed) {
+      html += '<div class="btn-row" style="margin-top:8px"><button type="button" class="btn small" id="apply-struct">Appliquer la mise en forme</button></div>';
+    }
+    box.hidden = !html;
+    box.className = d.titres.length && !d.avis.length ? "notice" : "notice warn";
+    box.innerHTML = html;
+    if (changed) {
+      $("apply-struct").addEventListener("click", function () {
+        $("corps").value = d.texte; renderAnalyse(); verifierStructure();
+      });
+    }
+  }
+
+  function renderAnalyse(local) {
+    if (!local) { verifierStructure(); if (!$("corps").value.trim()) renderAnalyse(true); return; }
     var a = analyseCorps();
     $("stats").innerHTML =
       '<span class="chip">' + a.words + ' mots</span>' +
@@ -639,7 +689,8 @@
       try { data = JSON.parse(text); } catch (e) {}
       if (!resp.ok) { out.className = "notice err"; out.textContent = "Erreur " + resp.status + " : " + ((data && data.detail) || text); return; }
       $("corps").value = data.corps_texte;
-      renderAnalyse();
+      renderAnalyse(true);
+      verifierStructure();
       var lignes = ["Texte chargé : " + data.nb_paragraphes + " paragraphes, " + data.titres.length + " titres reconnus."];
       if (data.titres_non_reconnus && data.titres_non_reconnus.length) lignes.push("Titres non reconnus : " + data.titres_non_reconnus.join(" / "));
       if (data.avertissement) lignes.push(data.avertissement);
@@ -660,7 +711,7 @@
     if (confirm("Vider la file ? Les documents non envoyés seront supprimés de cet appareil.")) { setQueue([]); blobs = {}; renderQueue(); }
   });
   $("btn-analyse").addEventListener("click", lireFichier);
-  $("corps").addEventListener("input", renderAnalyse);
+  $("corps").addEventListener("input", function () { renderAnalyse(); });
   $("remember").addEventListener("change", savePrefs);
   $("dl-public").addEventListener("click", function () { telecharger("/registre/public", "verifications.json"); });
   $("dl-complet").addEventListener("click", function () { telecharger("/registre/complet", "registre_complet_nexoria.json"); });
@@ -679,7 +730,7 @@
   loadPrefs();
   if (!val("apikey")) $("reglages").open = true;   // clé absente : la section Connexion s'ouvre
   $("service-line").textContent = "Génération · v" + VERSION;
-  renderAnalyse();
+  renderAnalyse(true);
   renderQueue();
   if (getQueue().some(function (j) { return j.state === "attente"; })) {
     setStatus(getQueue().filter(function (j) { return j.state === "attente"; }).length + " document(s) en attente d'envoi.", "busy");
