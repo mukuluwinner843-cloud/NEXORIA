@@ -27,12 +27,14 @@ import logging
 import core
 import nexoria_structure
 import nexoria_coordination as coord
+import acces
 import extract
 import rapport
 import verification
 import nexoria_sommaires as som
 
-SERVICE_VERSION = "3.10"
+SERVICE_VERSION = "3.11"
+PUBLIC_URL = os.environ.get("NEXORIA_PUBLIC_URL", "https://nexoria-production-1367.up.railway.app")
 MAX_CORPS = 300_000  # caractères : un devoir long reste très en dessous
 log = logging.getLogger("nexoria")
 logging.basicConfig(level=logging.INFO)
@@ -66,7 +68,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
-    expose_headers=["Content-Disposition", "X-Verification-Code", "X-Verification-Url", "X-Service-Version"],
+    expose_headers=["Content-Disposition", "X-Verification-Code", "X-Verification-Url", "X-Service-Version", "X-Acces-Url", "X-Acces-Id"],
 )
 
 
@@ -92,6 +94,7 @@ class GenerateRequest(BaseModel):
     police: Literal["defaut", "times", "helvetica", "dejavu-sans"] = Field(
         "defaut", description="Police du corps de texte et des sommaires (voir GET /modeles)")
     force: bool = Field(False, description="Génère même si le contrôle bloque (validation humaine)")
+    creer_acces: bool = Field(False, description="Crée un accès professeur (QR à envoyer à part, jamais imprimé)")
 
 
 @app.get("/health")
@@ -123,11 +126,16 @@ def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(None)):
         raise HTTPException(500, "Erreur interne de mise en page. Réessaie ; si cela persiste, envoie le texte au support.")
     filename = safe_filename(req.meta.doc_word, req.meta.eleve, req.pack.upper()) + ".pdf"
     code = core.last_code() or ""
-    return Response(content=pdf_bytes, media_type="application/pdf",
-                    headers={"Content-Disposition": 'attachment; filename="%s"' % filename,
-                             "X-Verification-Code": code,
-                             "X-Verification-Url": verification.VERIF_BASE + "?code=" + code,
-                             "X-Service-Version": SERVICE_VERSION})
+    headers = {"Content-Disposition": 'attachment; filename="%s"' % filename,
+               "X-Verification-Code": code,
+               "X-Verification-Url": verification.VERIF_BASE + "?code=" + code,
+               "X-Service-Version": SERVICE_VERSION}
+    if req.creer_acces:
+        # Le PDF est conservé (dossier privé) ; seul le jeton part au panneau, pour être envoyé à part.
+        acces_id, token = acces.creer(pdf_bytes, req.meta.model_dump(), code)
+        headers["X-Acces-Url"] = PUBLIC_URL.rstrip("/") + "/d/" + token
+        headers["X-Acces-Id"] = acces_id
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 
 def _registre():
@@ -204,3 +212,30 @@ def verifier_route(req: VerifierRequest, x_api_key: Optional[str] = Header(None)
     titres reconnus et texte reformaté. Aucun mot n'est modifié."""
     check_key(x_api_key)
     return coord.verifier(req.meta.model_dump(), req.corps_texte)
+
+
+@app.get("/d/{token}")
+def ouvrir_devoir(token: str):
+    """Ouverture par le professeur : aucune clé API, seul le jeton autorise l'accès.
+    Toute impossibilité (inconnu, expiré, révoqué, épuisé) donne la même réponse."""
+    try:
+        contenu, code = acces.ouvrir(token)
+    except acces.AccesIndisponible:
+        raise HTTPException(404, "Accès indisponible.")
+    return Response(content=contenu, media_type="application/pdf",
+                    headers={"Content-Disposition": 'inline; filename="devoir.pdf"',
+                             "Cache-Control": "no-store", "X-Robots-Tag": "noindex"})
+
+
+@app.get("/acces")
+def lister_acces(x_api_key: Optional[str] = Header(None)):
+    check_key(x_api_key)
+    return {"acces": acces.lister()}
+
+
+@app.post("/acces/{acces_id}/revoquer")
+def revoquer_acces(acces_id: str, x_api_key: Optional[str] = Header(None)):
+    check_key(x_api_key)
+    if not acces.revoquer(acces_id):
+        raise HTTPException(404, "Accès introuvable.")
+    return {"revoque": True}

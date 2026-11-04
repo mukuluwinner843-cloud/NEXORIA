@@ -261,6 +261,7 @@
       <div class="stats" id="stats"></div>
       <div id="structure" class="notice" hidden></div>
       <label class="checks" style="margin-top:10px"><input type="checkbox" id="force"> Forcer la génération malgré les blocages (validé par un humain)</label>
+      <label class="checks"><input type="checkbox" id="creer-acces"> Créer un accès professeur (élève absent) — le QR se transmet à part, jamais sur le document</label>
     </div>
   </section>
 
@@ -313,6 +314,20 @@
         <div class="code" id="verif-code"></div>
         <a class="link" id="verif-link" href="#" target="_blank" rel="noopener">Ouvrir la page de vérification</a>
         <div class="btn-row"><button type="button" class="btn small" id="verif-copy">Copier le code</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="acces-box" hidden aria-labelledby="h-acces">
+    <h2 id="h-acces"><span class="num">!</span>Accès professeur</h2>
+    <div class="notice warn" style="margin-top:0">Donne ce QR uniquement à l'enseignant concerné. Il ne doit pas être imprimé ni publié. Validité 7 jours, 5 ouvertures maximum.</div>
+    <div class="verif" style="margin-top:12px">
+      <div class="qr" id="acces-qr" aria-label="QR code d'accès au devoir"></div>
+      <div style="display:grid; gap:6px; min-width:0">
+        <div class="hint">Lien d'accès</div>
+        <div class="code" id="acces-url" style="font-size:12px"></div>
+        <div class="btn-row"><button type="button" class="btn small" id="acces-copy">Copier le lien</button><button type="button" class="btn small" id="acces-revoke">Révoquer</button></div>
+        <div class="status" id="acces-status"></div>
       </div>
     </div>
   </section>
@@ -489,7 +504,8 @@
       corps_texte: $("corps").value,
       sommaire: val("modele") || "classique",
       police: val("police") || "defaut",
-      force: $("force").checked
+      force: $("force").checked,
+      creer_acces: $("creer-acces").checked
     };
   }
   function checkBeforeSend(p) {
@@ -521,7 +537,9 @@
     return {
       blob: await resp.blob(),
       code: resp.headers.get("X-Verification-Code") || "",
-      vurl: resp.headers.get("X-Verification-Url") || ""
+      vurl: resp.headers.get("X-Verification-Url") || "",
+      accesUrl: resp.headers.get("X-Acces-Url") || "",
+      accesId: resp.headers.get("X-Acces-Id") || ""
     };
   }
   function downloadBlob(blob, name) {
@@ -652,6 +670,7 @@
     setStatus("Génération en cours…", "busy");
     try {
       var r = await postGenerate(p, key);
+      if (r.accesUrl) showAcces(r.accesUrl, r.accesId);
       var id = uid();
       blobs[id] = r.blob;
       downloadBlob(r.blob, fileName(p, r.code));
@@ -704,6 +723,29 @@
   $("verif-copy").addEventListener("click", function () {
     var code = $("verif-code").textContent;
     if (navigator.clipboard && code) navigator.clipboard.writeText(code).then(function () { $("verif-copy").textContent = "Copié ✓"; });
+  });
+
+  // ---------- accès professeur ----------
+  var currentAccesId = "";
+  function showAcces(url, id) {
+    currentAccesId = id;
+    $("acces-box").hidden = false;
+    $("acces-url").textContent = url;
+    $("acces-status").textContent = "";
+    var box = $("acces-qr"); box.innerHTML = "";
+    if (window.qrcode) { try { var q = qrcode(0, "M"); q.addData(url); q.make(); box.innerHTML = q.createImgTag(4, 8); } catch (e) {} }
+  }
+  $("acces-copy").addEventListener("click", function () {
+    var u = $("acces-url").textContent;
+    if (navigator.clipboard && u) navigator.clipboard.writeText(u).then(function () { $("acces-status").textContent = "Lien copié ✓"; });
+  });
+  $("acces-revoke").addEventListener("click", async function () {
+    if (!currentAccesId) return;
+    if (!confirm("Révoquer cet accès ? Le lien ne fonctionnera plus.")) return;
+    try {
+      var r = await fetch(serviceBase() + "/acces/" + currentAccesId + "/revoquer", { method: "POST", headers: { "X-API-Key": val("apikey") } });
+      $("acces-status").textContent = r.ok ? "Accès révoqué ✓" : "Échec de la révocation (" + r.status + ").";
+    } catch (e) { $("acces-status").textContent = "Pas de connexion au service."; }
   });
 
   // ---------- lecture de fichier ----------
