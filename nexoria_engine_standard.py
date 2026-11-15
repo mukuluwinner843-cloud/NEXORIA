@@ -23,6 +23,7 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas as canvas_module
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
+import nexoria_polices as P
 from nexoria_tables import table_flowables, diagram_flowable
 
 FD = "/usr/share/fonts/truetype/dejavu/"
@@ -39,6 +40,7 @@ def _register_serif(name, filename):
 _register_serif("Serif", "DejaVuSerif.ttf")
 _register_serif("Serif-Bold", "DejaVuSerif-Bold.ttf")
 _register_serif("Serif-Italic", "DejaVuSerif-Italic.ttf")
+pdfmetrics.registerFontFamily("Serif", normal="Serif", bold="Serif-Bold", italic="Serif-Italic", boldItalic="Serif-Italic")
 
 W, H = A4
 BLACK = colors.HexColor("#1C1C1C")
@@ -193,7 +195,7 @@ def wrap_glyphs(t):
             ch.encode("cp1252")
             out.append(ch)
         except UnicodeEncodeError:
-            out.append('<font face="Serif-Italic">%s</font>' % ch)
+            out.append('<font face="%s">%s</font>' % (P.F["serif_i"], ch))
     return "".join(out)
 
 
@@ -202,7 +204,7 @@ def italic_symbols(t):
     def repl(m):
         tok = m.group(0)
         tok = re.sub(r"^([A-Za-z])(\d)$", r"\1<sub>\2</sub>", tok)
-        return '<font face="Serif-Italic">%s</font>' % tok
+        return '<font face="%s">%s</font>' % (P.F["serif_i"], tok)
     pat = r"(?<=où )[A-Za-z]\d?(?= )|(?<=, )[A-Za-z]\d?(?= )|(?<= et )[A-Za-z]\d?(?= )"
     return re.sub(pat, repl, t)
 
@@ -214,8 +216,16 @@ def sup_rules(t):
     return t
 
 
+def md_inline(t):
+    """v3.12 : **gras** et *italique* (markdown) convertis en balises ; sans effet sur le reste."""
+    t = re.sub(r"\*\*(?=\S)(.+?)(?<=\S)\*\*", r"<b>\1</b>", t)
+    t = re.sub(r"(?<![\*\w])\*(?=\S)(.+?)(?<=\S)\*(?![\*\w])", r"<i>\1</i>", t)
+    return t
+
+
 def fr(text, explain=False):
     t = html.escape(text, quote=False)
+    t = md_inline(t)
     t = wrap_glyphs(t)
     t = nbsp_rules(t)
     t = sup_rules(t)
@@ -269,6 +279,9 @@ STYLES = {
 }
 
 
+P.memoriser_styles(STYLES)
+
+
 def plain_rule(space_before=4, space_after=10, thickness=0.8):
     return HRFlowable(width="100%", thickness=thickness, color=BLACK,
                       spaceBefore=space_before, spaceAfter=space_after, hAlign="LEFT")
@@ -298,7 +311,7 @@ def simple_dropcap(text, style):
     mangeait l'espace sous le paragraphe. On le restitue ici (le kit d'origine l'ignorait)."""
     first, tail = dropcap_split(text)
     rest = fr(tail.lstrip())
-    html_ = '<font size="%d" face="Serif-Bold">%s</font>%s' % (DC_SIZE, html.escape(first, quote=False), rest)
+    html_ = '<font size="%d" face="%s">%s</font>%s' % (DC_SIZE, P.F["serif_b"], html.escape(first, quote=False), rest)
     dc_style = ParagraphStyle(style.name + "_dc", parent=style,
                               spaceAfter=style.spaceAfter + (DC_SIZE - style.fontSize))
     return Paragraph(html_, dc_style)
@@ -309,7 +322,7 @@ def on_page(canvas, doc):
     canvas.saveState()
     canvas.setFillColor(colors.white)
     canvas.rect(0, 0, W, H, fill=1, stroke=0)
-    canvas.setFont("Helvetica", 8.5)
+    canvas.setFont(P.F["sans"], 8.5)
     canvas.setFillColor(BLACK)
     canvas.drawString(MARGIN_SIDE, H - MARGIN_TB + 18, t)
     canvas.setStrokeColor(BLACK)
@@ -318,10 +331,10 @@ def on_page(canvas, doc):
     canvas.setStrokeColor(GREY)
     canvas.setLineWidth(0.6)
     canvas.line(MARGIN_SIDE, MARGIN_TB - 18, W - MARGIN_SIDE, MARGIN_TB - 18)
-    canvas.setFont("Helvetica", 8)
+    canvas.setFont(P.F["sans"], 8)
     canvas.setFillColor(GREY)
     canvas.drawString(MARGIN_SIDE, MARGIN_TB - 30, t)
-    canvas.setFont("Helvetica-Bold", 8)
+    canvas.setFont(P.F["sans_b"], 8)
     canvas.drawCentredString(W / 2, MARGIN_TB - 30, BRAND_NAME)
     canvas.restoreState()
 
@@ -339,7 +352,7 @@ class NumberedCanvas(canvas_module.Canvas):
         total = len(self._saved_page_states)
         for state in self._saved_page_states:
             self.__dict__.update(state)
-            self.setFont("Helvetica", 8)
+            self.setFont(P.F["sans"], 8)
             self.setFillColor(GREY)
             self.drawRightString(W - MARGIN_SIDE, MARGIN_TB - 30,
                                  "Page %d sur %d" % (self._pageNumber + CFG["cover_pages"], total + CFG["cover_pages"]))
@@ -367,7 +380,8 @@ def build_body(blocks, out_pdf, running_title):
     CFG["running"] = running_title
     doc = TocDoc(out_pdf, pagesize=A4, leftMargin=MARGIN_SIDE, rightMargin=MARGIN_SIDE,
                  topMargin=MARGIN_TB, bottomMargin=MARGIN_TB)
-    frame = Frame(MARGIN_SIDE, MARGIN_TB, W - 2 * MARGIN_SIDE, H - 2 * MARGIN_TB, id="main")
+    frame = Frame(MARGIN_SIDE, MARGIN_TB, W - 2 * MARGIN_SIDE, H - 2 * MARGIN_TB, id="main",
+                 leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)  # v3.12 : grille exacte
     doc.addPageTemplates([PageTemplate(id="page", frames=[frame], onPage=on_page)])
     fw = W - 2 * MARGIN_SIDE
 
@@ -382,7 +396,7 @@ def build_body(blocks, out_pdf, running_title):
         if kind == "h1":
             plain = text
             heading = plain.replace(" :", NBSP + ":")
-            lines = balance(heading, "Serif-Bold", 15, fw)
+            lines = balance(heading, P.F["serif_b"], 15, fw)
             markup = "<br/>".join(html.escape(l, quote=False) for l in lines)
             # place minimale pour éviter un titre isolé : espace avant + titre + filet + 2 lignes de texte
             story.append(PageBreak() if b.get("newpage") else CondPageBreak(21 + 19 * len(lines) + 8 + 15 + 46))
@@ -563,12 +577,12 @@ def render_sommaire(entries, out_pdf, style):
     for pi, pg in enumerate(pages):
         # Titre
         c.setFillColor(style["title"])
-        c.setFont("Helvetica-Bold", 28)
+        c.setFont(P.F["sans_b"], 28)
         c.drawString(left_x, H - 90, "SOMMAIRE")
         if pi > 0:
-            c.setFont("Helvetica", 11)
+            c.setFont(P.F["sans"], 11)
             c.setFillColor(GREY)
-            c.drawString(left_x + stringWidth("SOMMAIRE", "Helvetica-Bold", 28) + 10,
+            c.drawString(left_x + stringWidth("SOMMAIRE", P.F["sans_b"], 28) + 10,
                          H - 90, "(suite)")
         c.setStrokeColor(style["title_rule"])
         c.setLineWidth(style["title_rule_w"])
@@ -586,13 +600,13 @@ def render_sommaire(entries, out_pdf, style):
 
             # Chapitre (niveau 1)
             c.setFillColor(style["chapter"])
-            c.setFont("Helvetica-Bold", 11)
+            c.setFont(P.F["sans_b"], 11)
             cy = y
             for line in cl:
                 c.drawString(left_x, cy, line)
                 if g["solo_page"] and line == cl[-1]:
                     if use_leaders:
-                        tw = stringWidth(line, "Helvetica-Bold", 11)
+                        tw = stringWidth(line, P.F["sans_b"], 11)
                         _draw_leaders(c, left_x + tw + 8, page_x - 22, cy,
                                       colors.HexColor("#C8C0B0"))
                     c.setFillColor(style["page"])
@@ -603,15 +617,15 @@ def render_sommaire(entries, out_pdf, style):
             # Sous-entrées (niveau 2)
             iy = cy
             for text, page in g["items"]:
-                c.setFont("Helvetica", 10.5)
+                c.setFont(P.F["sans"], 10.5)
                 c.setFillColor(style["item"])
                 c.drawString(text_x, iy, text)
                 if use_leaders:
-                    tw = stringWidth(text, "Helvetica", 10.5)
+                    tw = stringWidth(text, P.F["sans"], 10.5)
                     _draw_leaders(c, text_x + tw + 6, page_x - 22, iy,
                                   colors.HexColor("#D0C8B8"))
                 c.setFillColor(style["page"])
-                c.setFont("Helvetica-Bold", 10.5)
+                c.setFont(P.F["sans_b"], 10.5)
                 c.drawRightString(page_x, iy, page)
                 iy -= ROW_H
 

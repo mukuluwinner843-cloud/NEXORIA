@@ -18,6 +18,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import Table, TableStyle, Paragraph, Spacer, KeepTogether, Flowable
 from reportlab.pdfbase.pdfmetrics import stringWidth
+import nexoria_polices as P
 
 BLACK = colors.HexColor("#1C1C1C")
 GREY = colors.HexColor("#666666")
@@ -128,11 +129,11 @@ def _wrap(text, font, size, max_w):
 
 def table_flowables(caption, rows, fw, palette=None):
     pal = palette or {"text": BLACK, "head_bg": HEADER_BG, "grid": GRID, "grid_w": 0.6, "rule": None}
-    cap_style = ParagraphStyle("tbl_cap", fontName="Helvetica-Bold", fontSize=10.5,
+    cap_style = ParagraphStyle("tbl_cap", fontName=P.F["sans_b"], fontSize=10.5,
                                leading=14, textColor=pal["text"], spaceAfter=6)
-    head_style = ParagraphStyle("tbl_head", fontName="Helvetica-Bold", fontSize=10,
+    head_style = ParagraphStyle("tbl_head", fontName=P.F["sans_b"], fontSize=10,
                                 leading=13, textColor=pal["text"])
-    cell_style = ParagraphStyle("tbl_cell", fontName="Helvetica", fontSize=10,
+    cell_style = ParagraphStyle("tbl_cell", fontName=P.F["sans"], fontSize=10,
                                 leading=13.5, textColor=pal["text"])
     ncols = max(len(r) for r in rows)
     # 2 colonnes : 1re colonne étroite (libellé) ; plus de colonnes : largeurs égales
@@ -184,7 +185,7 @@ class OrgChart(Flowable):
         c = self.canv
         y = self.total_h
         if self.caption:
-            c.setFont("Helvetica-Oblique", 9.5)
+            c.setFont(P.F["sans_i"], 9.5)
             c.setFillColor(self.cap_color)
             c.drawCentredString(self.aw / 2, y - 11, self.caption)
             y -= 18
@@ -206,8 +207,8 @@ class OrgChart(Flowable):
                 c.setFillColor(colors.white)
                 c.roundRect(x, top, box_w, self.box_h, 4, stroke=1, fill=1)
                 c.setFillColor(BLACK)
-                c.setFont("Helvetica", 9)
-                lines = _wrap(label, "Helvetica", 9, box_w - 10)[:2]
+                c.setFont(P.F["sans"], 9)
+                lines = _wrap(label, P.F["sans"], 9, box_w - 10)[:2]
                 ty = top + self.box_h / 2 + (len(lines) - 1) * 5.5
                 for l in lines:
                     c.drawCentredString(x + box_w / 2, ty, l)

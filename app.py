@@ -33,7 +33,7 @@ import rapport
 import verification
 import nexoria_sommaires as som
 
-SERVICE_VERSION = "3.11"
+SERVICE_VERSION = "3.12"
 PUBLIC_URL = os.environ.get("NEXORIA_PUBLIC_URL", "https://nexoria-production-1367.up.railway.app")
 MAX_CORPS = 300_000  # caractères : un devoir long reste très en dessous
 log = logging.getLogger("nexoria")
@@ -91,7 +91,7 @@ class GenerateRequest(BaseModel):
                              description="Texte brut du devoir : INTRODUCTION, I., II., ... CONCLUSION")
     sommaire: Literal["classique", "pilules", "numerote", "chiffres", "colonnes"] = Field(
         "classique", description="Modèle de sommaire (voir GET /modeles)")
-    police: Literal["defaut", "times", "helvetica", "dejavu-sans"] = Field(
+    police: Literal["defaut", "helvetica", "times", "inter", "montserrat", "futura", "garamond"] = Field(
         "defaut", description="Police du corps de texte et des sommaires (voir GET /modeles)")
     force: bool = Field(False, description="Génère même si le contrôle bloque (validation humaine)")
     creer_acces: bool = Field(False, description="Crée un accès professeur (QR à envoyer à part, jamais imprimé)")

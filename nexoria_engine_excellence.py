@@ -14,6 +14,7 @@ import html
 import sys
 from nexoria_engine_standard import *          # parse_source, classify, fr, balance, STYLES, TocDoc, ...
 from reportlab.platypus import Table, TableStyle, Flowable
+import nexoria_polices as P
 from nexoria_tables import table_flowables, diagram_flowable
 
 PARCHMENT = colors.HexColor("#F8F6F0")
@@ -44,6 +45,12 @@ def cp1252_ok(t):
         return False
 
 
+def cap_first(text):
+    """v3.12 : première lettre du paragraphe en majuscule (Excellence) : une lettrine ou une
+    initiale minuscule est une erreur de présentation, pas un choix de mise en forme."""
+    return text[:1].upper() + text[1:] if text[:1].islower() else text
+
+
 class GoldDropCap(Flowable):
     """Lettrine or sur N lignes, texte justifié qui l'enveloppe (logique du kit Excellence).
     Corrections : largeur de la lettrine mesurée sur la vraie lettre, espace insécable respecté,
@@ -53,7 +60,7 @@ class GoldDropCap(Flowable):
         Flowable.__init__(self)
         # élision (« L’être ») : l'apostrophe reste avec la lettrine au lieu de démarrer la 1re ligne
         n = 2 if len(text) > 1 and text[1] in "\u2019'" else 1
-        self.first = text[:n]
+        self.first = text[:n].upper()
         self.rest = plain_typo(text[n:].lstrip())
         self.cap_lines = cap_lines
         self.body_size = body_size
@@ -61,7 +68,7 @@ class GoldDropCap(Flowable):
         # v3.5 : même police que le corps du paragraphe (plus de Helvetica en dur), espace resserré
         self.font = STYLES["body"].fontName
         self.cap_size = leading * cap_lines * 0.86
-        self.cap_w = stringWidth(self.first, "Serif-Bold", self.cap_size)
+        self.cap_w = stringWidth(self.first, P.F["serif_b"], self.cap_size)
         self.indent = self.cap_w + 3
         self.spaceAfter = CFG.get("gap", 13)
 
@@ -88,7 +95,7 @@ class GoldDropCap(Flowable):
     def draw(self):
         c = self.canv
         c.setFillColor(GOLD)
-        c.setFont("Serif-Bold", self.cap_size)
+        c.setFont(P.F["serif_b"], self.cap_size)
         c.drawString(0, self.total_height - self.cap_size * 0.86, self.first)
         c.setFont(self.font, self.body_size)
         c.setFillColor(CHARBON)
@@ -105,7 +112,7 @@ def gold_initial(text, style):
     first, tail = dropcap_split(text)
     first = html.escape(first, quote=False)
     rest = fr(tail.lstrip())
-    h = '<font size="%d" face="Serif-Bold" color="%s">%s</font>%s' % (DC_SIZE, GOLD_HEX, first, rest)
+    h = '<font size="%d" face="%s" color="%s">%s</font>%s' % (DC_SIZE, P.F["serif_b"], GOLD_HEX, first, rest)
     st = ParagraphStyle(style.name + "_gdc", parent=style,
                         spaceAfter=style.spaceAfter + (DC_SIZE - style.fontSize))
     return Paragraph(h, st)
@@ -121,7 +128,7 @@ def on_page_excellence(canvas, doc):
     canvas.saveState()
     canvas.setFillColor(PARCHMENT)
     canvas.rect(0, 0, W, H, fill=1, stroke=0)
-    canvas.setFont("Helvetica", 8.5)
+    canvas.setFont(P.F["sans"], 8.5)
     canvas.setFillColor(CHARBON)
     canvas.drawString(MARGIN_SIDE, H - MARGIN_TB + 18, t)
     canvas.setStrokeColor(GOLD)
@@ -132,16 +139,16 @@ def on_page_excellence(canvas, doc):
     canvas.setLineWidth(0.6)
     canvas.line(MARGIN_SIDE, MARGIN_TB - 18, W - MARGIN_SIDE, MARGIN_TB - 18)
     canvas.setStrokeAlpha(1)
-    canvas.setFont("Helvetica", 8)
+    canvas.setFont(P.F["sans"], 8)
     canvas.setFillColor(GREY)
     canvas.drawString(MARGIN_SIDE, MARGIN_TB - 30, t)
-    canvas.setFont("Helvetica-Bold", 8)
+    canvas.setFont(P.F["sans_b"], 8)
     canvas.drawCentredString(W / 2, MARGIN_TB - 30, BRAND_NAME)
     canvas.restoreState()
 
 
 def pull_quote(text, fw):
-    st = ParagraphStyle("quote_x", fontName="Serif-Italic", fontSize=12, leading=17.5,
+    st = ParagraphStyle("quote_x", fontName=P.F["serif_i"], fontSize=12, leading=17.5,
                         textColor=CHARBON, alignment=TA_LEFT)
     t = Table([[Paragraph(fr(text), st)]], colWidths=[fw], spaceBefore=4, spaceAfter=CFG.get("gap", 13))
     t.setStyle(TableStyle([
@@ -154,7 +161,7 @@ def pull_quote(text, fw):
 
 
 def formula_card(text, fw):
-    st = ParagraphStyle("formula_x", fontName="Serif-Italic", fontSize=13.5, leading=20,
+    st = ParagraphStyle("formula_x", fontName=P.F["serif_i"], fontSize=13.5, leading=20,
                         textColor=CHARBON, alignment=TA_CENTER)
     card_w = 250
     t = Table([[Paragraph(formula_markup(text), st)]], colWidths=[card_w], spaceBefore=4, spaceAfter=10)
@@ -171,14 +178,15 @@ def formula_card(text, fw):
 
 def gold_bullet(text, last):
     st = STYLES["bullet_last" if last else "bullet"]
-    return Paragraph('<font face="Serif" color="%s">&#9670;</font>&nbsp;&nbsp;%s' % (GOLD_HEX, fr(text)), st)
+    return Paragraph('<font face="%s" color="%s">&#9670;</font>&nbsp;&nbsp;%s' % (P.F["serif"], GOLD_HEX, fr(text)), st)
 
 
 def build_body_excellence(blocks, out_pdf, running_title):
     CFG["running"] = running_title
     doc = TocDoc(out_pdf, pagesize=A4, leftMargin=MARGIN_SIDE, rightMargin=MARGIN_SIDE,
                  topMargin=MARGIN_TB, bottomMargin=MARGIN_TB)
-    frame = Frame(MARGIN_SIDE, MARGIN_TB, W - 2 * MARGIN_SIDE, H - 2 * MARGIN_TB, id="main")
+    frame = Frame(MARGIN_SIDE, MARGIN_TB, W - 2 * MARGIN_SIDE, H - 2 * MARGIN_TB, id="main",
+                 leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0)  # v3.12 : grille exacte
     doc.addPageTemplates([PageTemplate(id="page", frames=[frame], onPage=on_page_excellence)])
     fw = W - 2 * MARGIN_SIDE
 
@@ -198,7 +206,7 @@ def build_body_excellence(blocks, out_pdf, running_title):
         # v3.7 : règle unique, sans variante. Pas de lettrine si le paragraphe ouvre par un mot
         # en capitales ou par un caractère non alphabétique ; lettrine sur 2 ou 3 lignes
         # selon la longueur ; un paragraphe d'une seule ligne reste un paragraphe normal.
-        plain = (Paragraph(fr(text), body_style(kwn, False)), 46)
+        plain = (Paragraph(fr(cap_first(text)), body_style(kwn, False)), 46)
         if starts_with_caps(text) or not text[:1].isalpha():
             return plain
         dc = GoldDropCap(text, cap_lines=3)
@@ -217,7 +225,7 @@ def build_body_excellence(blocks, out_pdf, running_title):
         kind, text, kwn = b["kind"], b["text"], b["kwn"]
         if kind == "h1":
             heading = text.replace(" :", NBSP + ":")
-            lines = balance(heading, "Serif-Bold", 15, fw)
+            lines = balance(heading, P.F["serif_b"], 15, fw)
             markup = "<br/>".join(html.escape(l, quote=False) for l in lines)
             nxt = blocks[i + 1] if i + 1 < len(blocks) else None
             first, first_h = (None, 46)
@@ -235,7 +243,7 @@ def build_body_excellence(blocks, out_pdf, running_title):
                 st["fresh"] = False
                 i += 1          # le paragraphe suivant est déjà posé
         elif kind == "p":
-            story.append(Paragraph(fr(text), body_style(kwn, not st["fresh"])))
+            story.append(Paragraph(fr(cap_first(text)), body_style(kwn, not st["fresh"])))
             st["fresh"] = False
         elif kind == "formula":
             story.append(formula_card(text, fw))

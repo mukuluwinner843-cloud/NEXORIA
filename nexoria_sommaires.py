@@ -11,10 +11,14 @@ Modèles (paramètre « sommaire ») :
 
 Polices (paramètre « police ») : appliquées au corps du texte (Standard et Excellence)
 et aux sommaires. La couverture garde ses polices de kit.
-  defaut      : Helvetica + DejaVu Serif (v3.3)
-  times       : Times (intégrée à PDF, aucune installation)
-  helvetica   : Helvetica (intégrée à PDF)
-  dejavu-sans : DejaVu Sans (fournie par fonts-dejavu-core)
+  defaut     : Helvetica (corps) + DejaVu Serif (titres)
+  helvetica  : Helvetica partout
+  times      : Times partout
+  inter      : Inter partout
+  montserrat : Montserrat partout
+  futura     : Jost partout (esprit Futura, Futura elle-même n'est pas libre)
+  garamond   : EB Garamond partout
+Registre et polices : nexoria_polices.py (TTF dans fonts/).
 
 Remarque : les sous-parties n'existent dans l'index que si le moteur les reconnaît comme titres
 de niveau 2. Aujourd'hui l'index ne contient que les parties de niveau 1 : les modèles à
@@ -30,60 +34,28 @@ from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas as canvas_module
 
+import nexoria_polices as P
 import nexoria_engine_standard as std
 import nexoria_engine_excellence as exc
 
 W, H = A4
-LEFT, RIGHT = 69, 528
+LEFT, RIGHT = std.MARGIN_SIDE, W - std.MARGIN_SIDE   # v3.12 : même grille que le corps et les en-têtes
 TOP = H - 135          # première ligne de titre
 BOTTOM = 45
 SPAN = TOP - BOTTOM
 NBSP = " "
 
 MODELES = ("classique", "pilules", "numerote", "chiffres", "colonnes")
-POLICES_NOMS = ("defaut", "times", "helvetica", "dejavu-sans")
-
-# --------------------------------------------------------------------------------------
-# Polices
-# --------------------------------------------------------------------------------------
-_FD = "/usr/share/fonts/truetype/dejavu/"
-try:
-    pdfmetrics.registerFont(TTFont("DejaVuSans", _FD + "DejaVuSans.ttf"))
-    pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", _FD + "DejaVuSans-Bold.ttf"))
-    DEJAVU_SANS_OK = True
-except Exception:  # police absente : l'option dejavu-sans est alors refusée proprement
-    DEJAVU_SANS_OK = False
-
-POLICES = {
-    "defaut": dict(sans="Helvetica", sans_b="Helvetica-Bold", serif="Serif",
-                   serif_b="Serif-Bold", serif_i="Serif-Italic"),
-    "times": dict(sans="Times-Roman", sans_b="Times-Bold", serif="Times-Roman",
-                  serif_b="Times-Bold", serif_i="Times-Italic"),
-    "helvetica": dict(sans="Helvetica", sans_b="Helvetica-Bold", serif="Helvetica",
-                      serif_b="Helvetica-Bold", serif_i="Helvetica-Oblique"),
-    "dejavu-sans": dict(sans="DejaVuSans", sans_b="DejaVuSans-Bold", serif="DejaVuSans",
-                        serif_b="DejaVuSans-Bold", serif_i="DejaVuSans"),
-}
-
-# Rôle de chaque police de base du moteur (STYLES) -> rôle dans POLICES
-_ROLE_OF = {"Helvetica": "sans", "Helvetica-Bold": "sans_b", "Serif": "serif",
-            "Serif-Bold": "serif_b", "Serif-Italic": "serif_i"}
-# Polices d'origine, mémorisées à l'import : chaque choix repart de là (pas de dérive).
-_BASE_FONTS = {k: st.fontName for k, st in std.STYLES.items()}
+POLICES_NOMS = P.POLICES_NOMS
+POLICES = P.POLICES
 
 
 def set_police(name):
-    """Applique la police choisie au corps (STYLES). À appeler sous verrou (état global)."""
-    if name not in POLICES:
+    """Applique la police au corps (Standard + Excellence) ; les sommaires lisent P.F. Verrou requis."""
+    if name not in P.POLICES:
         raise ValueError("police inconnue : %r" % name)
-    if name == "dejavu-sans" and not DEJAVU_SANS_OK:
-        raise ValueError("police dejavu-sans indisponible sur ce serveur")
-    pol = POLICES[name]
-    for k, st in std.STYLES.items():
-        role = _ROLE_OF.get(_BASE_FONTS[k])
-        if role:
-            st.fontName = pol[role]
-    return pol
+    P.apply(name, std.STYLES)
+    return P.POLICES[name]
 
 
 # --------------------------------------------------------------------------------------
