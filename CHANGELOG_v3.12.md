@@ -29,3 +29,6 @@
 
 ## Pages de garde
 - Pas de modèles de couverture multiples dans cette version : une seule couverture par pack. Centrage des titres vérifié (écart 0 pt).
+
+## Correctif lettrine
+- Un paragraphe contenant du markdown (**gras**, *italique*) n'a plus de lettrine : la lettrine dessinait du texte brut et laissait les astérisques.
