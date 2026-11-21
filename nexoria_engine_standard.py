@@ -131,6 +131,12 @@ def classify(lines):
         if is_h1(l):
             k = "h1"
             sect = section_kind(l)
+        elif sect == "body" and re.match(r"^\d\.\d{1,2}\s+[A-ZÀ-Ý]", l) and len(l) <= 130:
+            k = "h2"  # v3.14 : sous-titre « 1.2 Titre »
+        elif sect == "body" and l.startswith("Repère"):
+            k = "box"  # v3.14 : encadré
+        elif sect == "body" and prev and (prev["text"].endswith(":") or prev["kind"] == "bullet") and re.match(r"^[^:]{3,90} : \S", l) and l[0].isupper():
+            k = "bullet"  # v3.14 : élément de liste « Titre : texte »
         elif sect == "biblio":
             k = "biblio"
         elif is_formula(l):
@@ -427,6 +433,22 @@ def build_body(blocks, out_pdf, running_title):
         elif kind == "statement":
             story.append(Paragraph(fr(text), STYLES["quote"]))
             st["fresh"], st["dc"] = True, False
+        elif kind == "h2":
+            story.append(Paragraph(fr(text), ParagraphStyle("h2_nx", fontName="Serif-Bold", fontSize=12.5, leading=16,
+                                                            spaceBefore=12, spaceAfter=5, keepWithNext=1)))
+            st["fresh"], st["dc"] = True, False
+        elif kind == "box":
+            from reportlab.platypus import Table, TableStyle
+            from reportlab.lib import colors as _c
+            cell = Paragraph(fr(text), ParagraphStyle("box_nx", fontName="Serif-Italic", fontSize=11.5, leading=15,
+                                                      alignment=4))
+            t_ = Table([[cell]], colWidths=[fw - 8])
+            t_.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 0.8, _c.HexColor("#A67C3D")),
+                                    ("BACKGROUND", (0, 0), (-1, -1), _c.HexColor("#F7F3EA")),
+                                    ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                                    ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+            story.append(Spacer(1, 6)); story.append(t_); story.append(Spacer(1, 6))
+            st["fresh"], st["dc"] = True, False
         elif kind == "biblio":
             story.append(Paragraph(fr(text), STYLES["biblio"]))
         elif kind == "table":
@@ -652,7 +674,7 @@ def spaced(s):
 
 
 def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text, fields,
-                                 theme_lines, crest_path, logo_path, doc_word="DEVOIR"):
+                                 theme_lines, crest_path, logo_path, doc_word="DEVOIR", qr_url=None, code_qr=None):
     c = canvas_module.Canvas(out_pdf, pagesize=A4)
 
     def Y(t):  # t = distance depuis le haut de la page
@@ -735,6 +757,9 @@ def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text,
     fh = 52
     fw_ = fh * nw / nh
     c.drawImage(logo_path, W / 2 - fw_ / 2, Y(746) - fh, width=fw_, height=fh, mask="auto")
+    if qr_url:
+        import verification
+        verification.dessiner_qr_couverture(c, qr_url, code_qr, W)
 
     c.showPage()
     c.save()

@@ -148,3 +148,16 @@ def register(code, pack, meta, final_bytes, registre=None):
         json.dump(data, f, ensure_ascii=False, indent=2)
     os.replace(tmp, path)
     return entry
+
+
+def dessiner_qr_couverture(c, url, code, page_w, page_h=None):
+    """v3.13 : petit QR de vérification au pied de la couverture (coin bas-droit, dans le cadre)."""
+    size = 2.4 * cm
+    x = page_w - 4.6 * cm
+    y = 2.0 * cm
+    q = qr.QrCodeWidget(url); b = q.getBounds()
+    d = Drawing(size, size, transform=[size / (b[2] - b[0]), 0, 0, size / (b[3] - b[1]), 0, 0]); d.add(q)
+    renderPDF.draw(d, c, x, y)
+    c.setFillColorRGB(0.35, 0.35, 0.35); c.setFont("Helvetica", 6.5)
+    c.drawCentredString(x + size / 2, y - 0.45 * cm, code)
+

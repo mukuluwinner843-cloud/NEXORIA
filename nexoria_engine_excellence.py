@@ -256,6 +256,23 @@ def build_body_excellence(blocks, out_pdf, running_title):
             last = not (i + 1 < len(blocks) and blocks[i + 1]["kind"] == "bullet")
             story.append(gold_bullet(text, last))
             st["fresh"] = last
+        elif kind == "h2":
+            from reportlab.lib.styles import ParagraphStyle as _PS
+            story.append(Paragraph(fr(text), _PS("h2_nx_x", fontName=P.F["serif_b"], fontSize=12.5, leading=16,
+                                                 spaceBefore=12, spaceAfter=5, keepWithNext=1)))
+            st["fresh"], st["dc"] = True, False
+        elif kind == "box":
+            from reportlab.platypus import Table as _T, TableStyle as _TS, Spacer as _Sp
+            from reportlab.lib import colors as _c
+            from reportlab.lib.styles import ParagraphStyle as _PS
+            cell = Paragraph(fr(text), _PS("box_nx_x", fontName=P.F["serif_i"], fontSize=11.5, leading=15, alignment=4))
+            t_ = _T([[cell]], colWidths=[fw - 8])
+            t_.setStyle(_TS([("BOX", (0, 0), (-1, -1), 0.8, _c.HexColor("#A67C3D")),
+                             ("BACKGROUND", (0, 0), (-1, -1), _c.HexColor("#F7F3EA")),
+                             ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                             ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+            story.append(_Sp(1, 6)); story.append(t_); story.append(_Sp(1, 6))
+            st["fresh"], st["dc"] = True, False
         elif kind == "statement":
             story.append(pull_quote(text, fw))
             st["fresh"] = True
@@ -305,7 +322,7 @@ def build_sommaire_excellence(entries, out_pdf):
 # COUVERTURE EXCELLENCE (école) : double cadre orné, filets or, icônes
 # --------------------------------------------------------------------------------------
 def render_cover_school_excellence(out_pdf, school_line1, school_line2, year_text, fields, theme_lines,
-                                   kit_dir, doc_word="DEVOIR", crest_path=None):
+                                   kit_dir, doc_word="DEVOIR", crest_path=None, qr_url=None, code_qr=None):
     icons = {k: kit_dir + "icon_%s.png" % k for k in ("eleve", "classe", "matiere", "encadreur", "date")}
     logo_path = kit_dir + "nexoria_logo_transparent.png"
     c = canvas_module.Canvas(out_pdf, pagesize=A4)
@@ -420,6 +437,9 @@ def render_cover_school_excellence(out_pdf, school_line1, school_line2, year_tex
     fh = 58
     fw_ = fh * nw / nh
     c.drawImage(logo_path, W / 2 - fw_ / 2, Y(746) - fh, width=fw_, height=fh, mask="auto")
+    if qr_url:
+        import verification
+        verification.dessiner_qr_couverture(c, qr_url, code_qr, W)
 
     c.showPage()
     c.save()

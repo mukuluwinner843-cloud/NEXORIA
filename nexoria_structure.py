@@ -33,6 +33,7 @@ END_PUNCT = (".", "!", "?", ";", ",", "»", "…")
 ROMAN_RE = re.compile(r"^([IVXLC]{1,5})[.)]\s+(.+)$")
 DECIMAL_RE = re.compile(r"^(\d{1,2})[.)]\s+(.+)$")
 TABLE_CAP_RE = re.compile(r"^Tableau\s+\d+\s*[—–-]", re.I)
+SUB_RE = re.compile(r"^\d\.\d{1,2}\s+[A-ZÀ-Ý]")
 BULLET_RE = re.compile(r"^(?:[-•*]|\d+[.)])\s+")
 # Libellés d'interface ou de mise en page : jamais des titres de section.
 UI_LABELS = {"VERIFIER LE DOCUMENT", "VERIFICATION DU DOCUMENT", "SOMMAIRE", "TABLE DES MATIERES",
@@ -128,6 +129,13 @@ def reconstruire(texte):
             continue
         nxt = next((x for x in lines[i + 1:] if x), "")
         exp = _explicit_heading(l)
+        if buf and re.search(r"[.;:!?»…]$", buf[-1]) and re.match(r"[A-ZÀ-Ý0-9]", l) and not _is_all_caps(l) and not SUB_RE.match(l):
+            flush()  # v3.14 : fin de phrase + nouvelle phrase = nouveau paragraphe (liste sans puces, etc.)
+        if SUB_RE.match(l) and not exp:
+            flush()
+            blocks.append(("sub", l, False))
+            prev_blank = False
+            continue
         if exp:
             flush()
             blocks.append(("h", exp, False))
@@ -158,7 +166,9 @@ def reconstruire(texte):
                 used += 1
         if kind == "h":
             out_titles.append(text)
-        fixed.append((kind, text, ded))
+        if kind == "sub":
+            kind = "h"  # rendu par la classe « sub » du moteur (voir classify)
+        fixed.append((kind if kind != "h" or ded is not None else kind, text, ded))
 
     # Assemblage : une ligne vide entre tous les blocs (format attendu par le moteur).
     # Les lignes d'un tableau restent consécutives (un simple saut de ligne) ; le reste est séparé

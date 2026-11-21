@@ -23,8 +23,17 @@ def _sub(regle, motif, repl, t, journal, flags=0):
     return t
 
 
+# Blocs produits par NEXORIA lui-même (certificat), collés par erreur dans le texte de l'élève
+MARQUEURS_CERTIFICAT = ("nexoria-verif", "Scannez le QR code", "Le statut de validation est consulté",
+                        "Le fichier numérique peut aussi être vérifié", "CERTIFICAT DE VÉRIFICATION",
+                        "C E R T I F I C A T")
+
+
 def _majuscule_initiale(ligne):
-    """Met en majuscule la première lettre du paragraphe, après d'éventuels guillemets/parenthèses."""
+    """Met en majuscule la première lettre du paragraphe, après d'éventuels guillemets/parenthèses.
+    Ne touche pas aux URL, adresses ou codes (https://…, www…, nom@domaine)."""
+    if re.match(r"\s*[\(«\"']*\S*(://|www\.|@)", ligne):
+        return ligne, False
     i = 0
     while i < len(ligne) and ligne[i] in "  «\"'(‘“[-–":
         i += 1
@@ -37,6 +46,17 @@ def normaliser(texte):
     """Retourne (texte_normalise, journal) ; journal = [(regle, nombre), ...]."""
     journal = []
     t = (texte or "").replace("\r\n", "\n").replace("\r", "\n").replace("\t", " ")
+
+    # 0. Bloc de certificat copié depuis un PDF généré : ce n'est pas le travail de l'élève
+    lignes_ok, retires = [], 0
+    for ligne in t.split("\n"):
+        if any(m in ligne for m in MARQUEURS_CERTIFICAT):
+            retires += 1
+            continue
+        lignes_ok.append(ligne)
+    t = "\n".join(lignes_ok)
+    if retires:
+        journal.append(("bloc de certificat copié retiré", retires))
 
     # 1. Espaces : doubles, en bord de ligne, espaces insécables parasites
     t = _sub("espaces multiples", r"[ ]{2,}", " ", t, journal)

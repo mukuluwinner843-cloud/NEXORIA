@@ -30,6 +30,12 @@ TABLE_CAP_RE = re.compile(r"^Tableau\s+(\d+)\s*[\u2014\u2013\-]+\s*(.+)$", re.I)
 SEPARATOR_RE = re.compile(r"^[\\\-\u2014\u2013\s]+$")
 
 
+DEBUT_BLOC_RE = re.compile(r"^(\*|-|•|\d+\.\s|\d\.\d\s|(I|II|III|IV|V|VI)\.\s|Repère\b|>)")
+
+
+TITRE_SEUL_RE = re.compile(r"^(\d\.\d{1,2}\s|(I|II|III|IV|V|VI)\.\s|(INTRODUCTION|CONCLUSION)\s*$)")
+
+
 def paragraphs_from_markdown(raw):
     chunks = re.split(r"\n\s*\n", raw.strip())
     paras = []
@@ -43,11 +49,20 @@ def paragraphs_from_markdown(raw):
                 if not SEPARATOR_RE.match(x):
                     paras.append(x)
             continue
-        line = " ".join(lines)
-        line = line.replace("\\.", ".").replace("\\|", "|")
-        if line and not SEPARATOR_RE.match(line):
-            paras.append(line)
-    return paras
+        # v3.14 : une ligne de liste, un titre (I., 1.1, Chapitre…) ou un encadré (« Repère… »)
+        # commence toujours un nouveau paragraphe : plus de fusion dans le flux continu.
+        courant = []
+        for x in lines:
+            fin_phrase = bool(courant) and re.search(r"[.;:!?»)]\s*$", courant[-1]) and re.match(r"[A-ZÀ-Ý0-9«]", x)
+            titre_seul = bool(courant) and TITRE_SEUL_RE.match(courant[-1])
+            if courant and (DEBUT_BLOC_RE.match(x) or fin_phrase or titre_seul):
+                paras.append(" ".join(courant))
+                courant = []
+            courant.append(x)
+        if courant:
+            paras.append(" ".join(courant))
+    return [q.replace("\\.", ".").replace("\\|", "|") for q in paras
+            if q and not SEPARATOR_RE.match(q)]
 
 
 def _cells(line):

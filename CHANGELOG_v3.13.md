@@ -39,3 +39,10 @@ Lettrine (Excellence)
 ## Technique
 - Nouveau module `nexoria_mise_en_forme.py` (normaliser(texte) -> texte, journal), appelé dans `core._build`.
 - `SERVICE_VERSION` = 3.13.
+
+## Correctifs v3.13 (2e passe)
+- Couverture : petit QR de vérification au pied de la page, coin bas-droit, dans le cadre, avec le code. Les deux packs.
+- Le code de vérification est calculé une seule fois, avant la couverture ; la couverture et le certificat affichent le même code.
+- Texte copié depuis un PDF généré : les paragraphes du certificat (« C E R T I F I C A T… », « Scannez le QR code… », URL nexoria-verif) sont retirés du corps de l'élève.
+- Les URL et adresses (https://…, www…, nom@domaine) ne reçoivent plus de majuscule automatique.
+- Lettrine : une seule lettre (pas d'espace entre « L' » et le mot suivant).
