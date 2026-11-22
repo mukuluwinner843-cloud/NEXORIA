@@ -42,6 +42,18 @@ _register_serif("Serif-Bold", "DejaVuSerif-Bold.ttf")
 _register_serif("Serif-Italic", "DejaVuSerif-Italic.ttf")
 pdfmetrics.registerFontFamily("Serif", normal="Serif", bold="Serif-Bold", italic="Serif-Italic", boldItalic="Serif-Italic")
 
+# v3.15 : police sans-serif EMBARQUÉE (Liberation Sans, métriquement équivalente à Helvetica).
+# Avant : Helvetica non intégrée au PDF, donc substituée par la visionneuse (tirets, glyphes perdus).
+_LIB = "/usr/share/fonts/truetype/liberation/"
+_SANS = {"Sans": "LiberationSans-Regular.ttf", "Sans-Bold": "LiberationSans-Bold.ttf",
+         "Sans-Italic": "LiberationSans-Italic.ttf", "Sans-BoldItalic": "LiberationSans-BoldItalic.ttf"}
+for _n, _f in _SANS.items():
+    if os.path.exists(_LIB + _f):
+        pdfmetrics.registerFont(TTFont(_n, _LIB + _f))
+    else:
+        pdfmetrics.registerFont(TTFont(_n, FD + ("DejaVuSans-Bold.ttf" if "Bold" in _n else "DejaVuSans.ttf")))
+pdfmetrics.registerFontFamily("Sans", normal="Sans", bold="Sans-Bold", italic="Sans-Italic", boldItalic="Sans-BoldItalic")
+
 W, H = A4
 BLACK = colors.HexColor("#1C1C1C")
 GREY = colors.HexColor("#666666")
@@ -69,7 +81,7 @@ META_KEYS = {
 def parse_source(path):
     raw = open(path, encoding="utf-8").read()
     lines = [l.strip() for l in raw.split("\n") if l.strip()]
-    k = lines.index("INTRODUCTION")
+    k = next(i for i, l in enumerate(lines) if l.startswith("INTRODUCTION"))
     head, body = lines[:k], lines[k:]
     meta, title_block = {}, []
     for l in head:
@@ -87,7 +99,7 @@ SECTION_WORDS = ("BIBLIOGRAPHIE", "RÉFÉRENCES", "ANNEXE")
 def is_h1(l):
     if re.match(r"^[IVXLCDM]+\.\s+\S", l) and l == l.upper():
         return True
-    if l in ("INTRODUCTION", "CONCLUSION"):
+    if re.match(r"^(INTRODUCTION|CONCLUSION)( G[ÉE]N[ÉE]RALE)?$", l):   # v3.20 : variante « GÉNÉRALE »
         return True
     # « BIBLIOGRAPHIE » peut être précédé/suivi d'un qualificatif ("PETITE
     # BIBLIOGRAPHIE INDICATIVE", "RÉFÉRENCES BIBLIOGRAPHIQUES"...) : on cherche le
@@ -122,7 +134,7 @@ def classify(lines):
         # v3.6 : un titre coupé sur deux lignes dans le source (« I. L'HÉRITAGE TERRITORIAL ET » puis
         # « ADMINISTRATIF ») : la suite en capitales est recollée au titre au lieu de devenir un
         # paragraphe commençant par des majuscules isolées.
-        if (prev and prev["kind"] == "h1" and prev["text"] not in ("INTRODUCTION", "CONCLUSION")
+        if (prev and prev["kind"] == "h1" and not re.match(r"^(INTRODUCTION|CONCLUSION)", prev["text"])
                 and l == l.upper() and any(ch.isalpha() for ch in l) and not is_h1(l)
                 and not l.endswith((".", ":", "?", "!", ";")) and len(l) <= 70):
             prev["text"] = prev["text"] + " " + l
@@ -249,7 +261,7 @@ def formula_markup(text):
 # 3. CORPS DE TEXTE (styles = kit Standard : noir & blanc)
 # --------------------------------------------------------------------------------------
 def _body_style(name, indent=False, kwn=False, **kw):
-    base = dict(fontName="Helvetica", fontSize=12, leading=18, textColor=BLACK,
+    base = dict(fontName="Sans", fontSize=12, leading=18, textColor=BLACK,
                 alignment=TA_LEFT, spaceAfter=13, allowOrphans=0, allowWidows=0,
                 keepWithNext=1 if kwn else 0)
     if indent:
@@ -271,16 +283,16 @@ STYLES = {
     "quote": ParagraphStyle("quote", fontName="Serif-Italic", fontSize=12, leading=17.5,
                             textColor=BLACK, alignment=TA_LEFT, leftIndent=14,
                             spaceBefore=4, spaceAfter=13),
-    "bullet": ParagraphStyle("bullet", fontName="Helvetica", fontSize=12, leading=18,
+    "bullet": ParagraphStyle("bullet", fontName="Sans", fontSize=12, leading=18,
                              textColor=BLACK, leftIndent=16, firstLineIndent=-16,
                              spaceAfter=6, alignment=TA_LEFT, allowOrphans=0, allowWidows=0),
-    "bullet_last": ParagraphStyle("bullet_last", fontName="Helvetica", fontSize=12, leading=18,
+    "bullet_last": ParagraphStyle("bullet_last", fontName="Sans", fontSize=12, leading=18,
                                   textColor=BLACK, leftIndent=16, firstLineIndent=-16,
                                   spaceAfter=13, alignment=TA_LEFT, allowOrphans=0, allowWidows=0),
-    "biblio": ParagraphStyle("biblio", fontName="Helvetica", fontSize=10.5, leading=15,
+    "biblio": ParagraphStyle("biblio", fontName="Sans", fontSize=10.5, leading=15,
                              textColor=BLACK, alignment=TA_LEFT, leftIndent=18,
                              firstLineIndent=-18, spaceAfter=9, allowOrphans=0, allowWidows=0),
-    "closing": ParagraphStyle("closing", fontName="Helvetica", fontSize=9, leading=13,
+    "closing": ParagraphStyle("closing", fontName="Sans", fontSize=9, leading=13,
                               textColor=GREY, alignment=TA_CENTER),
 }
 
@@ -479,6 +491,17 @@ RULE_RATIO = 16.5 / 40.0   # position du filet entre deux entrées (centré)
 def som_chapter_lines(text, limit=58):
     if len(text) <= limit:
         return [text]
+    # v3.15.1 : deux lignes équilibrées (on coupe au mot qui minimise la plus longue ligne),
+    # au lieu d'un retour greedy qui laissait un seul mot (« TECHNIQUES ») sur la 2e ligne.
+    mots = text.split()
+    meilleur = None
+    for k in range(1, len(mots)):
+        a, b = " ".join(mots[:k]), " ".join(mots[k:])
+        if len(a) <= limit and len(b) <= limit:
+            if meilleur is None or max(len(a), len(b)) < meilleur[0]:
+                meilleur = (max(len(a), len(b)), [a, b])
+    if meilleur:
+        return meilleur[1]
     lines, cur = [], ""
     for w in text.split():
         if len((cur + " " + w).strip()) <= limit:
@@ -674,7 +697,8 @@ def spaced(s):
 
 
 def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text, fields,
-                                 theme_lines, crest_path, logo_path, doc_word="DEVOIR", qr_url=None, code_qr=None):
+                                 theme_lines, crest_path, logo_path, doc_word="DEVOIR", qr_url=None, code_qr=None,
+                                 membres=None):
     c = canvas_module.Canvas(out_pdf, pagesize=A4)
 
     def Y(t):  # t = distance depuis le haut de la page
@@ -700,18 +724,18 @@ def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text,
                     height=crest_h, mask="auto")
 
     c.setFillColor(BLACK)
-    c.setFont("Helvetica", 11)
+    c.setFont("Sans", 11)
     c.drawCentredString(W / 2, Y(243), spaced(school_line1))
-    c.setFont("Times-Bold", 26)
+    c.setFont("Serif-Bold", 26)
     c.drawCentredString(W / 2, Y(273), school_line2)
     rule(285, 140)
 
-    c.setFont("Times-Bold", 40)
+    c.setFont("Serif-Bold", 40)
     c.drawCentredString(W / 2, Y(347), doc_word)
     rule(360, 100)
 
     # thème du devoir (présent dans le texte source, absent du gabarit d'origine)
-    c.setFont("Times-Italic", 13)
+    c.setFont("Serif-Italic", 13)
     ty = 384
     for line in theme_lines:
         c.drawCentredString(W / 2, Y(ty), line)
@@ -722,23 +746,38 @@ def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text,
     c.setLineWidth(1)
     c.rect(W / 2 - box_w / 2, Y(box_top) - box_h, box_w, box_h)
     c.setFillColor(GREY)
-    c.setFont("Helvetica-Bold", 9)
+    c.setFont("Sans-Bold", 9)
     c.drawCentredString(W / 2, Y(box_top + 22), spaced("ANNÉE SCOLAIRE"))
     c.setFillColor(BLACK)
-    c.setFont("Times-Bold", 17)
+    c.setFont("Serif-Bold", 17)
     c.drawCentredString(W / 2, Y(box_top + 45), year_text)
 
     label_x = 130
     underline_end = W - label_x          # symétrique : le kit s'arrêtait sur le cadre
     t0, span = 496, 168   # span = emprise des 5 champs d'origine (garde l'équilibre si moins de champs)
+    if membres:
+        # v3.16 : TP de groupe — bloc « PAR » en 3 colonnes (nom seul), puis les champs espacés
+        c.setFillColor(GREY)
+        c.setFont("Sans-Bold", 8)
+        c.drawString(label_x, Y(496), "PAR")
+        col_w = (W - label_x - 130) / 3
+        rows = -(-len(membres) // 3)
+        for i, nom in enumerate(membres):
+            col, row = divmod(i, rows)
+            x = label_x + col * col_w
+            ty_ = 512 + row * 15
+            c.setFillColor(BLACK)
+            c.setFont("Sans-Bold", 9.5)
+            c.drawString(x, Y(ty_), nom.upper())
+        t0, span = 600, 80
     step = span / (len(fields) - 1) if len(fields) > 1 else 0
     for i, (label, value) in enumerate(fields):
         t = t0 + step * i
         c.setFillColor(GREY)
-        c.setFont("Helvetica-Bold", 8)
+        c.setFont("Sans-Bold", 8)
         c.drawString(label_x, Y(t), label)
         c.setFillColor(BLACK)
-        c.setFont("Helvetica-Bold", 12)
+        c.setFont("Sans-Bold", 12)
         c.drawString(label_x, Y(t + 17), value)
         c.setStrokeColor(LIGHT_GREY)
         c.setLineWidth(0.6)
@@ -748,10 +787,136 @@ def render_cover_school_standard(out_pdf, school_line1, school_line2, year_text,
     c.setLineWidth(0.8)
     c.line(W / 2 - 130, Y(708.5), W / 2 + 130, Y(708.5))
     c.setFillColor(BLACK)
-    c.setFont("Times-Italic", 11)
+    c.setFont("Serif-Italic", 11)
     c.drawCentredString(W / 2, Y(735), "\u00ab L\u2019excellence ne s\u2019improvise pas. Elle s\u2019organise. \u00bb")
 
     # logo NEXORIA : remonté pour rester à l'intérieur du cadre (il le chevauchait)
+    nim = Image.open(logo_path)
+    nw, nh = nim.size
+    fh = 52
+    fw_ = fh * nw / nh
+    c.drawImage(logo_path, W / 2 - fw_ / 2, Y(746) - fh, width=fw_, height=fh, mask="auto")
+    if qr_url:
+        import verification
+        verification.dessiner_qr_couverture(c, qr_url, code_qr, W)
+
+    c.showPage()
+    c.save()
+
+
+
+# --------------------------------------------------------------------------------------
+# 5 bis. COUVERTURE TP DE GROUPE (v3.17) — ordre exigé : en-tête ministère, blason et école,
+# sujet, travail réalisé par (noms), titulaire, cours, année scolaire en encadré « mémoire ».
+# --------------------------------------------------------------------------------------
+def render_cover_groupe_standard(out_pdf, entete, school_line1, school_line2, theme_lines, membres,
+                                 titulaire, cours, year_text, crest_path, logo_path,
+                                 qr_url=None, code_qr=None, date_remise=None):
+    c = canvas_module.Canvas(out_pdf, pagesize=A4)
+
+    def Y(t):
+        return H - t
+
+    m = 24
+    c.setStrokeColor(BLACK)
+    c.setLineWidth(0.8)
+    c.rect(m, m, W - 2 * m, H - 2 * m)
+
+    def rule(t, half):
+        c.setStrokeColor(LIGHT_GREY)
+        c.setLineWidth(0.8)
+        c.line(W / 2 - half, Y(t), W / 2 + half, Y(t))
+
+    # en-tête officiel : texte seul, sans armoiries
+    # en-tête en capitales, sur le modèle des mémoires : première ligne en gras, suivantes plus petites
+    c.setFillColor(BLACK)
+    ty = 44
+    for i, line in enumerate(entete):
+        c.setFont("Sans-Bold" if i == 0 else "Sans", 10.5 if i == 0 else 9)
+        c.drawCentredString(W / 2, Y(ty), line.upper())
+        ty += 14
+
+    # blason
+    if crest_path:
+        im = Image.open(crest_path)
+        cw, ch = im.size
+        crest_h = 160
+        crest_w = crest_h * cw / ch
+        c.drawImage(crest_path, W / 2 - crest_w / 2, Y(74) - crest_h, width=crest_w,
+                    height=crest_h, mask="auto")
+
+    c.setFillColor(BLACK)
+    c.setFont("Sans", 10.5)
+    c.drawCentredString(W / 2, Y(258), spaced(school_line1))
+    c.setFont("Serif-Bold", 24)
+    c.drawCentredString(W / 2, Y(286), school_line2)
+    rule(298, 140)
+
+    # sujet (encadré)
+    box_top = 316
+    c.setFillColor(GREY)
+    c.setFont("Sans-Bold", 8)
+    c.drawCentredString(W / 2, Y(box_top + 18), spaced("SUJET"))
+    c.setFillColor(BLACK)
+    c.setFont("Serif-Italic", 13)
+    ty = box_top + 38
+    for line in theme_lines:
+        c.drawCentredString(W / 2, Y(ty), line)
+        ty += 17
+    box_bottom = ty + 4
+    c.setStrokeColor(BLACK)
+    c.setLineWidth(0.8)
+    c.rect(W / 2 - 200, Y(box_bottom), 400, box_bottom - box_top)
+
+    # travail réalisé par : noms seuls, trois colonnes
+    t_label = box_bottom + 32
+    c.setFillColor(GREY)
+    c.setFont("Sans-Bold", 8)
+    c.drawString(130, Y(t_label), spaced("TRAVAIL RÉALISÉ PAR"))
+    rows = -(-len(membres) // 3)
+    col_w = 130
+    x0 = 130
+    for i, nom in enumerate(membres):
+        col, row = divmod(i, rows)
+        c.setFillColor(BLACK)
+        c.setFont("Sans-Bold", 9.5)
+        c.drawString(x0 + col * col_w, Y(t_label + 20 + row * 15), nom.upper())
+    names_bottom = t_label + 20 + (rows - 1) * 15
+
+    # titulaire puis cours : libellé, valeur, filet
+    underline_end = W - 130
+    items = [("TITULAIRE", titulaire), ("COURS", cours)] + ([("DATE DE REMISE", date_remise)] if date_remise else [])
+    for k, (label, value) in enumerate(items):
+        t = names_bottom + 36 + k * 40
+        c.setFillColor(GREY)
+        c.setFont("Sans-Bold", 8)
+        c.drawString(130, Y(t), label)
+        c.setFillColor(BLACK)
+        c.setFont("Sans-Bold", 12)
+        c.drawString(130, Y(t + 17), value)
+        c.setStrokeColor(LIGHT_GREY)
+        c.setLineWidth(0.6)
+        c.line(130, Y(t + 19), underline_end, Y(t + 19))
+
+    # année scolaire : encadré double, façon mémoire
+    by_ = 652 if date_remise else 628
+    bx, by, bw, bh = W / 2 - 115, by_, 230, 48 if date_remise else 58
+    c.setStrokeColor(BLACK)
+    c.setLineWidth(0.9)
+    c.rect(bx, Y(by) - bh, bw, bh)
+    c.setLineWidth(0.4)
+    c.rect(bx + 4, Y(by) - bh + 4, bw - 8, bh - 8)
+    c.setFillColor(GREY)
+    c.setFont("Sans-Bold", 8)
+    c.drawCentredString(W / 2, Y(by + 20), spaced("ANNÉE SCOLAIRE"))
+    c.setFillColor(BLACK)
+    c.setFont("Serif-Bold", 17)
+    c.drawCentredString(W / 2, Y(by + 42), year_text)
+
+    rule(708.5, 130)
+    c.setFillColor(BLACK)
+    c.setFont("Serif-Italic", 11)
+    c.drawCentredString(W / 2, Y(735), "\u00ab L\u2019excellence ne s\u2019improvise pas. Elle s\u2019organise. \u00bb")
     nim = Image.open(logo_path)
     nw, nh = nim.size
     fh = 52

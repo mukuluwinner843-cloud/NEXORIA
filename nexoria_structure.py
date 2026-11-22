@@ -68,10 +68,11 @@ def _explicit_heading(l):
     Pas de titre si la ligne ressemble à une phrase ou à une ligne de tableau."""
     t = l.rstrip(":").strip()
     p = _plain(t)
+    # v3.20 : « INTRODUCTION GÉNÉRALE » / « CONCLUSION GÉNÉRALE » gardent leur libellé exact
     if p in INTRO_KEYS:
-        return "INTRODUCTION"
+        return t.upper()
     if p in CONCL_KEYS:
-        return "CONCLUSION"
+        return t.upper()
     if len(t) <= 90 and any(w in p for w in BIBLIO_WORDS) and _is_all_caps(t):
         return t.upper()
     m = ROMAN_RE.match(t)
@@ -156,7 +157,7 @@ def reconstruire(texte):
     fixed = []
     fixed_prev_text = ""
     for kind, text, ded in blocks:
-        if kind == "h" and text not in ("INTRODUCTION", "CONCLUSION") and not any(text.startswith(w) for w in BIBLIO_WORDS) and not _plain(text).startswith(tuple(BIBLIO_WORDS)):
+        if kind == "h" and not text.startswith(("INTRODUCTION", "CONCLUSION")) and not any(text.startswith(w) for w in BIBLIO_WORDS) and not _plain(text).startswith(tuple(BIBLIO_WORDS)):
             m = ROMAN_RE.match(text)
             if not m:
                 if used < len(ROMAN_VALUES):
