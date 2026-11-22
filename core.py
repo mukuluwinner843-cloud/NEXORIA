@@ -15,6 +15,7 @@ import threading
 import verification
 import nexoria_engine_standard as std
 import nexoria_structure
+import nexoria_memoire as mem
 import nexoria_mise_en_forme as mef
 import nexoria_engine_excellence as exc
 import nexoria_sommaires as som
@@ -110,9 +111,26 @@ def build_pdf(pack: str, meta: dict, corps_texte: str,
         raise GenerationError("sommaire doit être l'un de : %s (reçu : %r)" % (", ".join(som.MODELES), sommaire))
     if police not in som.POLICES_NOMS:
         raise GenerationError("police doit être l'une de : %s (reçu : %r)" % (", ".join(som.POLICES_NOMS), police))
+    if meta.get("type") == "memoire":
+        meta = _preparer_memoire(meta)
     validate_meta(meta)
     with _RENDER_LOCK:
         return _build(pack, meta, corps_texte, sommaire, police)
+
+
+def _preparer_memoire(meta):
+    """Mode MÉMOIRE : renseigne les champs communs du moteur à partir des champs du mémoire.
+    Les champs propres au mémoire (titre, auteur, grade, directeur...) restent dans meta pour la page de garde."""
+    m = dict(meta)
+    m["etablissement"] = m.get("etablissement") or "Université de Kinshasa"
+    m["eleve"] = m.get("auteur") or m.get("eleve") or "Auteur"
+    m["matiere"] = m.get("option") or "Mémoire"
+    m["titulaire"] = m.get("directeur") or "Directeur"
+    m["theme"] = m.get("titre") or m.get("theme") or "Mémoire"
+    m["annee"] = m.get("annee") or "2025-2026"
+    m["date"] = m.get("date") or m["annee"]
+    m["doc_word"] = "MÉMOIRE"
+    return m
 
 
 def _build(pack, meta, corps_texte, sommaire, police):
@@ -171,7 +189,14 @@ def _build(pack, meta, corps_texte, sommaire, police):
         final_pdf = os.path.join(d, "final.pdf")
         want_sommaire = std.needs_sommaire(blocks)
         n_som = som.page_count(blocks, sommaire, pack, police) if want_sommaire else 0
-        std.CFG["cover_pages"] = 1 + n_som
+        memoire = meta.get("type") == "memoire"
+        lim_pdf = os.path.join(d, "lim.pdf")
+        n_lim = 0
+        if memoire:
+            n_lim = mem.render_liminaires(lim_pdf, meta.get("inmemoriam"), meta.get("dedicace"),
+                                          meta.get("remerciements"), meta.get("abreviations"),
+                                          signature_remerciements=meta.get("signature_remerciements"))
+        std.CFG["cover_pages"] = 1 + n_lim + n_som
         parts = [cover_pdf]
 
         if pack == "standard":
@@ -180,7 +205,12 @@ def _build(pack, meta, corps_texte, sommaire, police):
             if want_sommaire:
                 som.render(toc, som_pdf, sommaire, pack, police, std.CFG["cover_pages"])
                 parts.append(som_pdf)
-            if membres:
+            if memoire:
+                mem.render_cover_memoire(cover_pdf, meta.get("entete"), meta.get("titre") or meta["theme"],
+                                         meta.get("auteur", ""), meta.get("grade", ""), meta.get("diplome", ""),
+                                         meta.get("option", ""), meta.get("directeur", ""), year,
+                                         qr_url=qr_url, code_qr=code)
+            elif membres:
                 # v3.17 : couverture TP de groupe, ordre exigé par l'école
                 entete = meta.get("entete") or ENTETE_GROUPE_DEFAUT
                 cours = meta["matiere"].strip()
@@ -204,7 +234,12 @@ def _build(pack, meta, corps_texte, sommaire, police):
             if want_sommaire:
                 som.render(toc, som_pdf, sommaire, pack, police, std.CFG["cover_pages"])
                 parts.append(som_pdf)
-            if membres:
+            if memoire:
+                mem.render_cover_memoire(cover_pdf, meta.get("entete"), meta.get("titre") or meta["theme"],
+                                         meta.get("auteur", ""), meta.get("grade", ""), meta.get("diplome", ""),
+                                         meta.get("option", ""), meta.get("directeur", ""), year,
+                                         qr_url=qr_url, code_qr=code)
+            elif membres:
                 entete = meta.get("entete") or ENTETE_GROUPE_DEFAUT
                 cours = meta["matiere"].strip()
                 cours = cours[:1].upper() + cours[1:]
@@ -223,6 +258,8 @@ def _build(pack, meta, corps_texte, sommaire, police):
                     qr_url=qr_url, code_qr=code,
                 )
 
+        if n_lim:
+            parts.insert(1, lim_pdf)  # couverture, liminaires, sommaire, corps
         parts.append(body_pdf)
         std.merge(parts, final_pdf, title=meta["theme"], author=meta.get("eleve") or ", ".join(membres or []) or "NEXORIA", pack=pack)
         with open(final_pdf, "rb") as f:

@@ -335,6 +335,45 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; }
   }
+
+  /* ===== Verre liquide (style iOS 26) ===== */
+  body { position: relative; overflow-x: hidden; background: #E9E1D6; }
+  body::before, body::after {
+    content: ""; position: fixed; z-index: -1; border-radius: 50%; filter: blur(70px); opacity: .85;
+    animation: liquide 22s ease-in-out infinite alternate; pointer-events: none;
+  }
+  body::before { width: 62vmax; height: 62vmax; left: -18vmax; top: -12vmax;
+    background: radial-gradient(circle at 30% 30%, #E4C48A, #C98F6A 60%, transparent 70%); }
+  body::after { width: 58vmax; height: 58vmax; right: -16vmax; bottom: -14vmax; animation-delay: -9s;
+    background: radial-gradient(circle at 60% 40%, #9FB7D9, #5C7FB5 55%, transparent 72%); }
+  @keyframes liquide {
+    from { transform: translate(0,0) scale(1); }
+    to   { transform: translate(6vmax, 4vmax) scale(1.12); }
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #14161D; }
+    body::before { background: radial-gradient(circle at 30% 30%, #7A5A2E, #4A2F3D 60%, transparent 70%); }
+    body::after { background: radial-gradient(circle at 60% 40%, #2C4A7A, #1B2A4A 55%, transparent 72%); }
+  }
+  .card, .brand, header {
+    position: relative;
+    -webkit-backdrop-filter: saturate(190%) blur(38px);
+    backdrop-filter: saturate(190%) blur(38px);
+    border: 1px solid rgba(255,255,255,.55);
+    box-shadow: 0 30px 60px -22px rgba(30,20,10,.35), inset 0 1px 0 rgba(255,255,255,.8), inset 0 0 0 1px rgba(255,255,255,.08);
+    overflow: hidden;
+  }
+  .card::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: linear-gradient(160deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.08) 38%, rgba(255,255,255,0) 60%);
+  }
+  input, select, textarea {
+    -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.06), inset 0 0 0 1px rgba(255,255,255,.5);
+  }
+  button, .btn, [role="button"] { transition: transform .2s ease, box-shadow .2s ease; }
+  button:active, .btn:active { transform: scale(.97); }
+  @media (prefers-reduced-motion: reduce) { body::before, body::after { animation: none; } }
 </style>
 </head>
 <body>
@@ -351,6 +390,13 @@
 
   <section class="card" aria-labelledby="h-pack">
     <h2 id="h-pack"><span class="num">1</span>Document</h2>
+    <div class="field">
+      <label for="typedoc">Type</label>
+      <select id="typedoc">
+        <option value="devoir">Devoir / TP</option>
+        <option value="memoire">Mémoire</option>
+      </select>
+    </div>
     <div class="grid-2">
       <div class="field">
         <span class="label">Pack</span>
@@ -408,8 +454,12 @@
         <input type="text" id="annee" value="2026-2027" autocomplete="off">
       </div>
       <div class="field">
-        <label for="eleve">Élève</label>
+        <label for="eleve">Élève <span class="opt">(devoir individuel)</span></label>
         <input type="text" id="eleve" placeholder="Nom Prénom" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="membres">Travail de groupe <span class="opt">(un nom par ligne ; laisser vide si individuel)</span></label>
+        <textarea id="membres" rows="5" placeholder="Asuka&#10;Mupira&#10;Diamasika" autocomplete="off"></textarea>
       </div>
       <div class="field">
         <label for="classe">Classe <span class="opt">(optionnel)</span></label>
@@ -432,6 +482,86 @@
         <input type="text" id="date" placeholder="ex. 12 octobre 2026" autocomplete="off">
       </div>
     </div>
+  </section>
+
+  <section class="card" id="bloc-memoire" hidden aria-labelledby="h-mem">
+    <h2 id="h-mem"><span class="num">2</span>Mémoire</h2>
+      <div class="field">
+        <label for="m-e1">En-tête ligne 1</label>
+        <input type="text" id="m-e1" value="RÉPUBLIQUE DÉMOCRATIQUE DU CONGO" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-e2">En-tête ligne 2</label>
+        <input type="text" id="m-e2" value="MINISTÈRE DE L'ENSEIGNEMENT SUPÉRIEUR ET UNIVERSITAIRE" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-e3">En-tête ligne 3</label>
+        <input type="text" id="m-e3" value="UNIVERSITÉ DE KINSHASA" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-e4">En-tête ligne 4</label>
+        <input type="text" id="m-e4" value="FACULTÉ DE DROIT" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-e5">En-tête ligne 5</label>
+        <input type="text" id="m-e5" value="DÉPARTEMENT DE DROIT ÉCONOMIQUE ET SOCIAL" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-e6">En-tête ligne 6</label>
+        <input type="text" id="m-e6" value="B.P. 204 Kinshasa XI" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-e7">En-tête ligne 7</label>
+        <input type="text" id="m-e7" value="KINSHASA / LEMBA" placeholder="" autocomplete="off">
+      </div>
+      <div class="field plein">
+        <label for="m-titre">Titre du mémoire</label>
+        <textarea id="m-titre" rows="3" placeholder="">La régulation des investissements étrangers dans l'espace OHADA : entre sécurisation des capitaux et souveraineté économique</textarea>
+      </div>
+      <div class="field">
+        <label for="m-auteur">Nom et prénom de l'auteur</label>
+        <input type="text" id="m-auteur" value="KASONGO MALU Aristote" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-grade">Grade</label>
+        <input type="text" id="m-grade" value="Licencié en Droit" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-diplome">Diplôme visé</label>
+        <input type="text" id="m-diplome" value="Diplômé d'Études Supérieures en Droit" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-option">Option</label>
+        <input type="text" id="m-option" value="Droit Économique et Social" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-directeur">Directeur</label>
+        <input type="text" id="m-directeur" value="Professeur Ordinaire MBUYI TSHIBANGU Célestin" placeholder="" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="m-annee">Année académique</label>
+        <input type="text" id="m-annee" value="2025–2026" placeholder="" autocomplete="off">
+      </div>
+      <div class="field plein">
+        <label for="m-inmemoriam">In Memoriam (facultatif)</label>
+        <textarea id="m-inmemoriam" rows="4" placeholder=""></textarea>
+      </div>
+      <div class="field plein">
+        <label for="m-dedicace">Dédicace (une ligne vide entre deux paragraphes)</label>
+        <textarea id="m-dedicace" rows="5" placeholder=""></textarea>
+      </div>
+      <div class="field plein">
+        <label for="m-remerciements">Remerciements (une ligne vide entre deux paragraphes)</label>
+        <textarea id="m-remerciements" rows="6" placeholder=""></textarea>
+      </div>
+      <div class="field">
+        <label for="m-signature">Signature des remerciements (dernière ligne)</label>
+        <input type="text" id="m-signature" placeholder="" autocomplete="off">
+      </div>
+      <div class="field plein">
+        <label for="m-abreviations">Liste des abréviations (« SIGLE : définition », une par ligne)</label>
+        <textarea id="m-abreviations" rows="6" placeholder=""></textarea>
+      </div>
   </section>
 
   <section class="card" aria-labelledby="h-text">
@@ -676,12 +806,43 @@
   }
 
   // ---------- payload ----------
+  function estMemoire() { return $("typedoc").value === "memoire"; }
+  function basculeType() {
+    var mem = estMemoire();
+    $("bloc-memoire").hidden = !mem;
+    $("h-meta").parentNode.hidden = mem;
+  }
+  $("typedoc").addEventListener("change", basculeType);
+  function membresList() {
+    var t = $("membres") ? $("membres").value : "";
+    var noms = t.split(/\r?\n|,|;/).map(function (x) { return x.trim(); }).filter(Boolean);
+    return noms.length ? noms : null;
+  }
+  function metaMemoire() {
+    var e = [];
+    for (var i = 1; i <= 7; i++) e.push(val("m-e" + i));
+    return {
+      type: "memoire", entete: e, titre: val("m-titre"), auteur: val("m-auteur"), grade: val("m-grade"),
+      diplome: val("m-diplome"), option: val("m-option"), directeur: val("m-directeur"), annee: val("m-annee"),
+      inmemoriam: $("m-inmemoriam").value, dedicace: $("m-dedicace").value,
+      remerciements: $("m-remerciements").value, signature_remerciements: val("m-signature"),
+      abreviations: $("m-abreviations").value, doc_word: "MÉMOIRE", etablissement: ""
+    };
+  }
   function buildPayload() {
+    if (estMemoire()) {
+      return {
+        pack: packValue(), meta: metaMemoire(), corps_texte: $("corps").value,
+        sommaire: val("modele") || "classique", police: val("police") || "defaut",
+        force: $("force").checked, creer_acces: $("creer-acces").checked
+      };
+    }
     return {
       pack: packValue(),
       meta: {
         etablissement: val("etablissement"),
         eleve: val("eleve"),
+        membres: membresList(),
         classe: val("classe"),
         matiere: val("matiere"),
         titulaire: val("titulaire"),
@@ -698,7 +859,13 @@
     };
   }
   function checkBeforeSend(p) {
-    var need = [["eleve", "Élève"], ["matiere", "Matière"], ["titulaire", "Encadreur"], ["theme", "Thème"], ["annee", "Année"], ["date", "Date de remise"]];
+    var need;
+    if (p.meta.type === "memoire") {
+      need = [["titre", "Titre du mémoire"], ["auteur", "Auteur"], ["directeur", "Directeur"], ["annee", "Année académique"]];
+    } else {
+      need = [["matiere", "Matière"], ["titulaire", "Encadreur"], ["theme", "Thème"], ["annee", "Année"], ["date", "Date de remise"]];
+      if (!p.meta.membres) need.unshift(["eleve", "Élève (ou la liste du groupe)"]);
+    }
     for (var i = 0; i < need.length; i++) {
       if (!p.meta[need[i][0]]) return need[i][1] + " manquant.";
     }
@@ -707,7 +874,8 @@
     return null;
   }
   function fileName(p, code) {
-    var base = [p.meta.doc_word, p.meta.eleve, p.pack.toUpperCase()].join("_");
+    var nom = p.meta.eleve || p.meta.auteur || (p.meta.membres ? "Groupe" : "");
+    var base = [p.meta.doc_word, nom, p.pack.toUpperCase()].join("_");
     return base.replace(/\s+/g, "_").replace(/[^\w\-.À-ÿ]/g, "") + ".pdf";
   }
 

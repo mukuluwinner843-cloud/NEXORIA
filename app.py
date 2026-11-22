@@ -37,17 +37,29 @@ app.add_middleware(
 
 
 class Meta(BaseModel):
-    etablissement: str = Field(..., examples=["CS Francisco Palau"])
+    type: Optional[str] = Field(None, description="devoir (défaut) | memoire")
+    titre: str = ""
+    auteur: str = ""
+    grade: str = ""
+    diplome: str = ""
+    option: str = ""
+    directeur: str = ""
+    inmemoriam: str = ""
+    dedicace: str = ""
+    remerciements: str = ""
+    signature_remerciements: str = ""
+    abreviations: str = ""
+    etablissement: str = Field("", examples=["CS Francisco Palau"])
     eleve: str = Field("", description="Nom de l'élève ; vide pour un travail de groupe (utiliser membres)")
     membres: Optional[list[str]] = Field(None, description="Noms des membres du groupe (TP de groupe)")
     entete: Optional[list[str]] = Field(None, description="Lignes d'en-tête ministère ; par défaut RDC + Ministère")
     classe: str = Field("", description="Laisser vide si le niveau/la classe n'est pas précisé sur le document")
     matiere: str = ""
-    titulaire: str = Field(..., description="Nom de l'enseignant/encadreur")
+    titulaire: str = Field("", description="Nom de l'enseignant/encadreur")
     cours: str = ""
-    theme: str = Field(..., description="Titre ou thème du devoir")
-    annee: str = Field(..., examples=["2026-2027"])
-    date: str = Field(..., description="Date de remise, telle qu'à afficher")
+    theme: str = Field("", description="Titre ou thème du devoir")
+    annee: str = Field("", examples=["2026-2027"])
+    date: str = Field("", description="Date de remise, telle qu'à afficher")
     doc_word: str = Field("DEVOIR", description="Mot affiché en gros sur la couverture")
 
 
@@ -55,6 +67,20 @@ class GenerateRequest(BaseModel):
     pack: Literal["standard", "excellence"]
     meta: Meta
     corps_texte: str = Field(..., description="Texte brut du devoir : INTRODUCTION, I., II., ... CONCLUSION")
+    sommaire: str = Field("classique", description="classique | pilules | numerote | chiffres | colonnes")
+    police: str = Field("defaut", description="defaut | helvetica | times | inter | montserrat | futura | garamond")
+
+
+
+import unicodedata as _ud
+
+
+def _nom_fichier_ascii(*parts):
+    """Nom de fichier ASCII sûr pour l'en-tête HTTP (pas d'accents ni de caractères spéciaux)."""
+    raw = "_".join(p for p in parts if p)
+    ascii_ = _ud.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii")
+    import re as _re
+    return _re.sub(r"[^A-Za-z0-9._-]+", "_", ascii_).strip("_") or "document"
 
 
 @app.get("/health")
@@ -67,11 +93,12 @@ def generate(req: GenerateRequest, x_api_key: Optional[str] = Header(None)):
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(401, "Clé API invalide ou manquante (en-tête X-API-Key).")
     try:
-        pdf_bytes = core.build_pdf(req.pack, req.meta.model_dump(), req.corps_texte)
+        pdf_bytes = core.build_pdf(req.pack, req.meta.model_dump(), req.corps_texte,
+                                   sommaire=req.sommaire, police=req.police)
     except core.GenerationError as e:
         raise HTTPException(e.status_code, str(e))
-    nom_fichier = req.meta.eleve or ", ".join(req.meta.membres or []) or "groupe"
-    filename = "%s_%s_%s.pdf" % (req.meta.doc_word, nom_fichier.replace(" ", "_"), req.pack.upper())
+    nom_fichier = req.meta.eleve or req.meta.auteur or ", ".join(req.meta.membres or []) or "groupe"
+    filename = _nom_fichier_ascii(req.meta.doc_word, nom_fichier, req.pack.upper()) + ".pdf"
     return Response(content=pdf_bytes, media_type="application/pdf",
                     headers={"Content-Disposition": 'attachment; filename="%s"' % filename})
 
