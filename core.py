@@ -76,9 +76,30 @@ def find_crest(etablissement: str, mapping: dict):
 
 
 def validate_meta(meta: dict):
-    missing = [k for k in REQUIRED_META if not str(meta.get(k, "")).strip()]
+    requis = [k for k in REQUIRED_META if not (k == "eleve" and meta.get("membres"))]   # v3.16 : TP de groupe
+    missing = [k for k in requis if not str(meta.get(k, "")).strip()]
     if missing:
         raise GenerationError("Champs manquants dans meta : " + ", ".join(missing))
+
+
+ENTETE_GROUPE_DEFAUT = ["République Démocratique du Congo", "Ministère de l\u2019Éducation nationale et nouvelle citoyenneté"]
+
+
+def _membres_groupe(valeur):
+    """v3.16 : accepte une liste ou un texte (un nom par ligne ou par virgule). « A et B » = deux noms."""
+    if not valeur:
+        return []
+    if isinstance(valeur, str):
+        morceaux = re.split(r"[\n,;]+", valeur)
+    else:
+        morceaux = list(valeur)
+    noms = []
+    for m in morceaux:
+        for n in re.split(r"\s+et\s+", str(m).strip(), flags=re.I):
+            n = n.strip()
+            if n:
+                noms.append(n)
+    return noms
 
 
 def build_pdf(pack: str, meta: dict, corps_texte: str,
@@ -120,15 +141,24 @@ def _build(pack, meta, corps_texte, sommaire, police):
 
     doc_word = meta.get("doc_word") or "DEVOIR"
     line1, line2 = split_school_line(meta["etablissement"])
-    year = re.sub(r"\s*[-\u2013\u2014]\s*", " \u2013 ", meta["annee"])
-    fields = [("\u00c9L\u00c8VE", meta["eleve"].upper())]
-    if str(meta.get("classe", "")).strip():
-        fields.append(("CLASSE", meta["classe"].upper()))
-    fields += [
-        ("MATI\u00c8RE", meta["matiere"].upper()),
-        ("ENCADREUR", meta["titulaire"].upper()),
-        ("DATE DE REMISE", meta["date"]),
-    ]
+    # v3.15.1 : l'année s'écrit comme saisie, avec un trait d'union (2026-2027)
+    year = re.sub(r"\s*[\u2013\u2014-]\s*", "-", meta["annee"])
+    membres = _membres_groupe(meta.get("membres"))
+    if membres:
+        # v3.16 : TP de groupe — noms seuls, cours et titulaire, sans champ « élève » ni classe
+        doc_word = meta.get("doc_word") or "TP"
+        fields = [("COURS", meta["matiere"].upper()),
+                  ("TITULAIRE", meta["titulaire"].upper()),
+                  ("DATE DE REMISE", meta["date"])]
+    else:
+        fields = [("\u00c9L\u00c8VE", meta["eleve"].upper())]
+        if str(meta.get("classe", "")).strip():
+            fields.append(("CLASSE", meta["classe"].upper()))
+        fields += [
+            ("MATI\u00c8RE", meta["matiere"].upper()),
+            ("ENCADREUR", meta["titulaire"].upper()),
+            ("DATE DE REMISE", meta["date"]),
+        ]
 
     # v3.13 : code de vérification calculé une fois, avant la couverture (QR) et réutilisé dans le certificat
     code = verification.new_code(pack, meta, corps_texte)
@@ -145,33 +175,56 @@ def _build(pack, meta, corps_texte, sommaire, police):
         parts = [cover_pdf]
 
         if pack == "standard":
-            theme_lines = std.balance(meta["theme"], "Times-Italic", 13, 330)
+            theme_lines = std.balance(meta["theme"], "Serif-Italic", 13, 330)
             toc, _gap, _tries = std.build_balanced(std.build_body, blocks, body_pdf, meta["matiere"].upper())
             if want_sommaire:
                 som.render(toc, som_pdf, sommaire, pack, police, std.CFG["cover_pages"])
                 parts.append(som_pdf)
-            std.render_cover_school_standard(
-                cover_pdf, line1, line2, year, fields, theme_lines,
-                crest_path=find_crest(meta["etablissement"], KNOWN_CRESTS),
-                logo_path=os.path.join(ASSETS, "nexoria_logo_grey.png"),
-                doc_word=doc_word, qr_url=qr_url, code_qr=code,
-            )
+            if membres:
+                # v3.17 : couverture TP de groupe, ordre exigé par l'école
+                entete = meta.get("entete") or ENTETE_GROUPE_DEFAUT
+                cours = meta["matiere"].strip()
+                cours = cours[:1].upper() + cours[1:]
+                std.render_cover_groupe_standard(
+                    cover_pdf, entete, line1, line2, theme_lines, membres, meta["titulaire"].strip(), cours,
+                    year, crest_path=find_crest(meta["etablissement"], KNOWN_CRESTS), date_remise=meta.get("date", "").strip() or None,
+                    logo_path=os.path.join(ASSETS, "nexoria_logo_grey.png"),
+                    qr_url=qr_url, code_qr=code,
+                )
+            else:
+                std.render_cover_school_standard(
+                    cover_pdf, line1, line2, year, fields, theme_lines,
+                    crest_path=find_crest(meta["etablissement"], KNOWN_CRESTS),
+                    logo_path=os.path.join(ASSETS, "nexoria_logo_grey.png"),
+                    doc_word=doc_word, qr_url=qr_url, code_qr=code,
+                )
         else:
-            theme_lines = exc.balance(meta["theme"], "Times-Italic", 13, 330)
+            theme_lines = exc.balance(meta["theme"], "Serif-Italic", 13, 330)
             toc, _gap, _tries = exc.build_balanced(exc.build_body_excellence, blocks, body_pdf, meta["matiere"].upper())
             if want_sommaire:
                 som.render(toc, som_pdf, sommaire, pack, police, std.CFG["cover_pages"])
                 parts.append(som_pdf)
-            exc.render_cover_school_excellence(
-                cover_pdf, line1, line2, year, fields, theme_lines,
-                kit_dir=ASSETS + "/",
-                doc_word=doc_word,
-                crest_path=find_crest(meta["etablissement"], KNOWN_CRESTS_EXCELLENCE),
-                qr_url=qr_url, code_qr=code,
-            )
+            if membres:
+                entete = meta.get("entete") or ENTETE_GROUPE_DEFAUT
+                cours = meta["matiere"].strip()
+                cours = cours[:1].upper() + cours[1:]
+                exc.render_cover_groupe_excellence(
+                    cover_pdf, entete, line1, line2, theme_lines, membres, meta["titulaire"].strip(), cours,
+                    year, kit_dir=ASSETS + "/", date_remise=meta.get("date", "").strip() or None,
+                    crest_path=find_crest(meta["etablissement"], KNOWN_CRESTS_EXCELLENCE),
+                    qr_url=qr_url, code_qr=code,
+                )
+            else:
+                exc.render_cover_school_excellence(
+                    cover_pdf, line1, line2, year, fields, theme_lines,
+                    kit_dir=ASSETS + "/",
+                    doc_word=doc_word,
+                    crest_path=find_crest(meta["etablissement"], KNOWN_CRESTS_EXCELLENCE),
+                    qr_url=qr_url, code_qr=code,
+                )
 
         parts.append(body_pdf)
-        std.merge(parts, final_pdf, title=meta["theme"], author=meta["eleve"], pack=pack)
+        std.merge(parts, final_pdf, title=meta["theme"], author=meta.get("eleve") or ", ".join(membres or []) or "NEXORIA", pack=pack)
         with open(final_pdf, "rb") as f:
             body = f.read()
 

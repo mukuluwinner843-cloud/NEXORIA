@@ -265,7 +265,7 @@ def build_body_excellence(blocks, out_pdf, running_title):
             from reportlab.platypus import Table as _T, TableStyle as _TS, Spacer as _Sp
             from reportlab.lib import colors as _c
             from reportlab.lib.styles import ParagraphStyle as _PS
-            cell = Paragraph(fr(text), _PS("box_nx_x", fontName=P.F["serif_i"], fontSize=11.5, leading=15, alignment=4))
+            cell = Paragraph(fr(text), _PS("box_nx_x", fontName=P.F["serif_i"], fontSize=11.5, leading=15, alignment=0))
             t_ = _T([[cell]], colWidths=[fw - 8])
             t_.setStyle(_TS([("BOX", (0, 0), (-1, -1), 0.8, _c.HexColor("#A67C3D")),
                              ("BACKGROUND", (0, 0), (-1, -1), _c.HexColor("#F7F3EA")),
@@ -369,19 +369,19 @@ def render_cover_school_excellence(out_pdf, school_line1, school_line2, year_tex
         c.drawImage(crest_path, W / 2 - crest_w / 2, Y(22) - crest_h, width=crest_w, height=crest_h, mask="auto")
 
     c.setFillColor(NAVY)
-    c.setFont("Helvetica", 11)
+    c.setFont("Sans", 11)
     c.drawCentredString(W / 2, Y(243), spaced(school_line1))
-    c.setFont("Times-Bold", 26)
+    c.setFont("Serif-Bold", 26)
     c.drawCentredString(W / 2, Y(273), school_line2)
     gold_rule_diamond(285)
 
     c.setFillColor(NAVY)
-    c.setFont("Times-Bold", 40)
+    c.setFont("Serif-Bold", 40)
     c.drawCentredString(W / 2, Y(347), doc_word)
     gold_rule_diamond(360, half_len=100)
 
     c.setFillColor(NAVY)
-    c.setFont("Times-Italic", 13)
+    c.setFont("Serif-Italic", 13)
     ty = 384
     for line in theme_lines:
         c.drawCentredString(W / 2, Y(ty), line)
@@ -392,10 +392,10 @@ def render_cover_school_excellence(out_pdf, school_line1, school_line2, year_tex
     c.setLineWidth(1)
     c.rect(W / 2 - box_w / 2, Y(box_top) - box_h, box_w, box_h)
     c.setFillColor(GREY)
-    c.setFont("Helvetica-Bold", 9)
+    c.setFont("Sans-Bold", 9)
     c.drawCentredString(W / 2, Y(box_top + 22), spaced("ANNÉE SCOLAIRE"))
     c.setFillColor(NAVY)
-    c.setFont("Times-Bold", 17)
+    c.setFont("Serif-Bold", 17)
     c.drawCentredString(W / 2, Y(box_top + 45), year_text)
 
     # ---- champs : icône + barre or + libellé + valeur + filet or ----
@@ -412,10 +412,10 @@ def render_cover_school_excellence(out_pdf, school_line1, school_line2, year_tex
         c.setLineWidth(1.1)
         c.line(bar_x, Y(icon_cy_t) + 16, bar_x, Y(icon_cy_t) - 16)
         c.setFillColor(GREY)
-        c.setFont("Helvetica-Bold", 8)
+        c.setFont("Sans-Bold", 8)
         c.drawString(label_x, Y(t), label)
         c.setFillColor(NAVY)
-        c.setFont("Helvetica-Bold", 12)
+        c.setFont("Sans-Bold", 12)
         c.drawString(label_x, Y(t + 17), value)
         c.setStrokeColor(GOLD_C)
         c.setLineWidth(0.6)
@@ -429,9 +429,148 @@ def render_cover_school_excellence(out_pdf, school_line1, school_line2, year_tex
     c.line(W / 2 + 10, dy, W / 2 + 130, dy)
     c.setFillColor(NAVY)
     c.circle(W / 2, dy, 5, fill=1, stroke=0)
-    c.setFont("Times-Italic", 11)
+    c.setFont("Serif-Italic", 11)
     c.drawCentredString(W / 2, Y(735), "\u00ab L\u2019excellence ne s\u2019improvise pas. Elle s\u2019organise. \u00bb")
 
+    nim = Image.open(logo_path)
+    nw, nh = nim.size
+    fh = 58
+    fw_ = fh * nw / nh
+    c.drawImage(logo_path, W / 2 - fw_ / 2, Y(746) - fh, width=fw_, height=fh, mask="auto")
+    if qr_url:
+        import verification
+        verification.dessiner_qr_couverture(c, qr_url, code_qr, W)
+
+    c.showPage()
+    c.save()
+
+
+# --------------------------------------------------------------------------------------
+# COUVERTURE TP DE GROUPE — PACK EXCELLENCE (v3.19) : même ordre que le Standard, style or/marine
+# --------------------------------------------------------------------------------------
+def render_cover_groupe_excellence(out_pdf, entete, school_line1, school_line2, theme_lines, membres,
+                                   titulaire, cours, year_text, kit_dir, crest_path=None,
+                                   qr_url=None, code_qr=None, date_remise=None):
+    logo_path = kit_dir + "nexoria_logo_transparent.png"
+    c = canvas_module.Canvas(out_pdf, pagesize=A4)
+
+    def Y(t):
+        return H - t
+
+    outer, inner, cs = 6.5, 13.5, 42
+    c.setStrokeColor(NAVY)
+    c.setLineWidth(1.1)
+    for d in (outer, inner):
+        c.line(cs, H - d, W - cs, H - d)
+        c.line(cs, d, W - cs, d)
+        c.line(d, cs, d, H - cs)
+        c.line(W - d, cs, W - d, H - cs)
+    c.drawImage(kit_dir + "corner_fret_tl.png", 0, H - cs, cs, cs, mask="auto")
+    c.drawImage(kit_dir + "corner_fret_tr.png", W - cs, H - cs, cs, cs, mask="auto")
+    c.drawImage(kit_dir + "corner_fret_bl.png", 0, 0, cs, cs, mask="auto")
+    c.drawImage(kit_dir + "corner_fret_br.png", W - cs, 0, cs, cs, mask="auto")
+
+    def gold_rule_diamond(t, half_gap=8, half_len=140):
+        y = Y(t)
+        c.setStrokeColor(GOLD_C)
+        c.setLineWidth(1)
+        c.line(W / 2 - half_len, y, W / 2 - half_gap, y)
+        c.line(W / 2 + half_gap, y, W / 2 + half_len, y)
+        d = 4
+        c.setFillColor(GOLD_C)
+        p = c.beginPath()
+        p.moveTo(W / 2, y + d)
+        p.lineTo(W / 2 + d, y)
+        p.lineTo(W / 2, y - d)
+        p.lineTo(W / 2 - d, y)
+        p.close()
+        c.drawPath(p, fill=1, stroke=0)
+
+    c.setFillColor(NAVY)
+    ty = 40
+    for i, line in enumerate(entete):
+        c.setFont("Sans-Bold" if i == 0 else "Sans", 10.5 if i == 0 else 9)
+        c.drawCentredString(W / 2, Y(ty), line.upper())
+        ty += 14
+
+    if crest_path:
+        im = Image.open(crest_path)
+        cw, ch = im.size
+        crest_h = 160
+        crest_w = crest_h * cw / ch
+        c.drawImage(crest_path, W / 2 - crest_w / 2, Y(70) - crest_h, width=crest_w, height=crest_h, mask="auto")
+
+    c.setFillColor(NAVY)
+    c.setFont("Sans", 10.5)
+    c.drawCentredString(W / 2, Y(254), spaced(school_line1))
+    c.setFont("Serif-Bold", 24)
+    c.drawCentredString(W / 2, Y(282), school_line2)
+    gold_rule_diamond(294)
+
+    box_top = 312
+    c.setFillColor(GREY)
+    c.setFont("Sans-Bold", 8)
+    c.drawCentredString(W / 2, Y(box_top + 18), spaced("SUJET"))
+    c.setFillColor(NAVY)
+    c.setFont("Serif-Italic", 13)
+    ty = box_top + 38
+    for line in theme_lines:
+        c.drawCentredString(W / 2, Y(ty), line)
+        ty += 17
+    box_bottom = ty + 4
+    c.setStrokeColor(NAVY)
+    c.setLineWidth(1)
+    c.rect(W / 2 - 200, Y(box_bottom), 400, box_bottom - box_top)
+
+    t_label = box_bottom + 32
+    c.setFillColor(GREY)
+    c.setFont("Sans-Bold", 8)
+    c.drawString(130, Y(t_label), spaced("TRAVAIL RÉALISÉ PAR"))
+    rows = -(-len(membres) // 3)
+    for i, nom in enumerate(membres):
+        col, row = divmod(i, rows)
+        c.setFillColor(NAVY)
+        c.setFont("Sans-Bold", 9.5)
+        c.drawString(130 + col * 130, Y(t_label + 20 + row * 15), nom.upper())
+    names_bottom = t_label + 20 + (rows - 1) * 15
+
+    underline_end = W - 130
+    items = [("TITULAIRE", titulaire), ("COURS", cours)] + ([("DATE DE REMISE", date_remise)] if date_remise else [])
+    for k, (label, value) in enumerate(items):
+        t = names_bottom + 36 + k * 40
+        c.setFillColor(GREY)
+        c.setFont("Sans-Bold", 8)
+        c.drawString(130, Y(t), label)
+        c.setFillColor(NAVY)
+        c.setFont("Sans-Bold", 12)
+        c.drawString(130, Y(t + 17), value)
+        c.setStrokeColor(GOLD_C)
+        c.setLineWidth(0.6)
+        c.line(130, Y(t + 19), underline_end, Y(t + 19))
+
+    by_ = 652 if date_remise else 628
+    bx, by, bw, bh = W / 2 - 115, by_, 230, 48 if date_remise else 58
+    c.setStrokeColor(NAVY)
+    c.setLineWidth(1)
+    c.rect(bx, Y(by) - bh, bw, bh)
+    c.setLineWidth(0.4)
+    c.rect(bx + 4, Y(by) - bh + 4, bw - 8, bh - 8)
+    c.setFillColor(GREY)
+    c.setFont("Sans-Bold", 8)
+    c.drawCentredString(W / 2, Y(by + 20), spaced("ANNÉE SCOLAIRE"))
+    c.setFillColor(NAVY)
+    c.setFont("Serif-Bold", 17)
+    c.drawCentredString(W / 2, Y(by + 42), year_text)
+
+    dy = Y(708.5)
+    c.setStrokeColor(GOLD_C)
+    c.setLineWidth(1)
+    c.line(W / 2 - 130, dy, W / 2 - 10, dy)
+    c.line(W / 2 + 10, dy, W / 2 + 130, dy)
+    c.setFillColor(NAVY)
+    c.circle(W / 2, dy, 5, fill=1, stroke=0)
+    c.setFont("Serif-Italic", 11)
+    c.drawCentredString(W / 2, Y(735), "« L’excellence ne s’improvise pas. Elle s’organise. »")
     nim = Image.open(logo_path)
     nw, nh = nim.size
     fh = 58
